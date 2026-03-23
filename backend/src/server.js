@@ -48,9 +48,7 @@ app.use("/api/clearance", clearanceRoutes);
 app.use("/api/qr", qrRoutes);
 app.get("/api/stats", getStats);
 
-app.get("/", (req, res) => {
-  res.send("Smart Hostel API is running...");
-});
+
 
 // Serve static assets
 const frontendPath = path.join(__dirname, '../../frontend/dist');
