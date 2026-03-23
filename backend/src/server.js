@@ -69,7 +69,7 @@ app.use((req, res, next) => {
 });
 
 // Catch-all for React Router
-app.get('*', (req, res) => {
+app.get('(.*)', (req, res) => {
   res.sendFile(path.resolve(frontendPath, 'index.html'));
 });
 
