@@ -318,22 +318,22 @@ const StudentDashboard = () => {
         <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500">
             {/* ── Unified Welcome Banner ── */}
             <div className="relative overflow-hidden bg-gradient-to-br from-[#1A3263] via-[#1e3a8a] to-indigo-900 rounded-[2.5rem] p-8 md:p-10 text-white shadow-2xl border border-white/5 group">
+                {/* Status Badge - Now in the absolute corner of the blue box */}
+                <div className="absolute top-4 right-4 md:top-6 md:right-6 z-30">
+                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border shadow-xl backdrop-blur-md transition-transform hover:scale-105 ${user.accountStatus?.toLowerCase() === 'verified'
+                        ? 'bg-emerald-500 text-white border-emerald-400'
+                        : 'bg-[#FAB95B] text-[#1A3263] border-amber-300'
+                        }`}>
+                        {user.accountStatus?.toLowerCase() === 'verified' ? <HiOutlineCheckBadge className="text-sm" /> : <div className="w-1.5 h-1.5 rounded-full bg-[#1A3263] animate-pulse" />}
+                        <span className="text-[10px] font-black uppercase tracking-wider">{user.accountStatus || 'Pending'}</span>
+                    </div>
+                </div>
+
                 {/* Decorative background elements */}
                 <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full -mr-48 -mt-48 blur-3xl animate-pulse" />
                 <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-500/10 rounded-full -ml-32 -mb-32 blur-3xl" />
 
                 <div className="relative z-10 flex flex-col md:flex-row items-center gap-8 text-center md:text-left">
-                    {/* Status Badge - Refined positioning in the banner corner */}
-                    <div className="absolute top-4 right-4 md:top-8 md:right-8 z-30">
-                        <div className={`flex items-center gap-2 px-4 py-2 rounded-2xl border shadow-xl backdrop-blur-md ${user.accountStatus?.toLowerCase() === 'verified'
-                            ? 'bg-emerald-500 text-white border-emerald-400'
-                            : 'bg-[#FAB95B] text-[#1A3263] border-amber-300'
-                            }`}>
-                            {user.accountStatus?.toLowerCase() === 'verified' ? <HiOutlineCheckBadge className="text-lg" /> : <div className="w-2 h-2 rounded-full bg-[#1A3263] animate-pulse" />}
-                            <span className="text-xs font-black uppercase tracking-wider">{user.accountStatus || 'Pending'}</span>
-                        </div>
-                    </div>
-
                     <div className="relative group/pic">
                         {user.profilePicture ? (
                             <div className="relative">
