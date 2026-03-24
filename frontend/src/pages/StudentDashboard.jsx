@@ -323,15 +323,18 @@ const StudentDashboard = () => {
                 <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-500/10 rounded-full -ml-32 -mb-32 blur-3xl" />
 
                 <div className="relative z-10 flex flex-col md:flex-row items-center gap-8 text-center md:text-left">
-                    <div className="relative group/pic">
-                        {/* Status Badge - Now pinned to the profile picture container */}
-                        <div className={`absolute -top-3 -right-3 z-30 flex items-center gap-2 px-3 py-1.5 rounded-xl border shadow-xl backdrop-blur-md transition-transform group-hover/pic:scale-105 ${user.accountStatus?.toLowerCase() === 'verified'
+                    {/* Status Badge - Refined positioning in the banner corner */}
+                    <div className="absolute top-4 right-4 md:top-8 md:right-8 z-30">
+                        <div className={`flex items-center gap-2 px-4 py-2 rounded-2xl border shadow-xl backdrop-blur-md ${user.accountStatus?.toLowerCase() === 'verified'
                             ? 'bg-emerald-500 text-white border-emerald-400'
                             : 'bg-[#FAB95B] text-[#1A3263] border-amber-300'
                             }`}>
-                            {user.accountStatus?.toLowerCase() === 'verified' ? <HiOutlineCheckBadge className="text-sm" /> : <div className="w-1.5 h-1.5 rounded-full bg-[#1A3263] animate-pulse" />}
-                            <span className="text-[10px] font-black uppercase tracking-wider">{user.accountStatus || 'Pending'}</span>
+                            {user.accountStatus?.toLowerCase() === 'verified' ? <HiOutlineCheckBadge className="text-lg" /> : <div className="w-2 h-2 rounded-full bg-[#1A3263] animate-pulse" />}
+                            <span className="text-xs font-black uppercase tracking-wider">{user.accountStatus || 'Pending'}</span>
                         </div>
+                    </div>
+
+                    <div className="relative group/pic">
                         {user.profilePicture ? (
                             <div className="relative">
                                 <img
@@ -341,7 +344,7 @@ const StudentDashboard = () => {
                                 />
                                 <button
                                     onClick={handleProfilePicDelete}
-                                    className="absolute -top-2 -left-2 bg-rose-500 text-white p-2.5 rounded-2xl shadow-xl opacity-0 group-hover/pic:opacity-100 transition-all hover:scale-110 active:scale-95 z-30"
+                                    className="absolute -top-2 -right-2 bg-rose-500 text-white p-2.5 rounded-2xl shadow-xl opacity-0 group-hover/pic:opacity-100 transition-all hover:scale-110 active:scale-95 z-30"
                                     title="Delete Photo"
                                 >
                                     <HiOutlineTrash className="text-lg" />
