@@ -108,14 +108,17 @@ const StudentDashboard = () => {
             // Refresh User Session in background (Sync Verified Badge)
             refreshUser().catch(err => console.error('Background refresh error:', err));
 
-            // Fetch student/financial data
-            const studentRes = await fetch(`${API}/student-payments/all`, {
+            // Fetch student/financial data (Detailed status for student)
+            const studentRes = await fetch(`${API}/student-payments/status`, {
                 headers: { 'Authorization': `Bearer ${sessionStorage.getItem('hostel_token')}` }
             });
-            const students = await studentRes.json();
-            const myData = Array.isArray(students) ? students.find(s => s.email === user?.email) : (students?.data ? students.data.find(s => s.email === user?.email) : null);
+            const studentStatus = await studentRes.json();
+            const myData = studentStatus.success ? studentStatus.data : null;
             setStudentData(myData);
-            if (myData) sessionStorage.setItem('nmh_studentData', JSON.stringify(myData));
+            if (myData) {
+                // If student record not found in status, fallback or keep as null
+                sessionStorage.setItem('nmh_studentData', JSON.stringify(myData));
+            }
 
             // Fetch complaints
             const compRes = await fetch(`${API}/complaints/mine`, {
@@ -439,7 +442,7 @@ const StudentDashboard = () => {
                 </div>
             </div>
 
-            {activeTab === 'dashboard' && <DashboardView user={user} student={studentData} application={application} complaints={complaints} notices={notices} navigate={navigate} setIsComplaintModalOpen={setIsComplaintModalOpen} onProfilePicDelete={handleProfilePicDelete} uploadingProfile={uploadingProfile} handleProfilePicUpload={handleProfilePicUpload} profilePicInputRef={profilePicInputRef} />}
+            {activeTab === 'dashboard' && <DashboardView user={user} student={studentData} application={application} complaints={complaints} notices={notices} navigate={navigate} setIsComplaintModalOpen={setIsComplaintModalOpen} onProfilePicDelete={handleProfilePicDelete} uploadingProfile={uploadingProfile} handleProfilePicUpload={handleProfilePicUpload} profilePicInputRef={profilePicInputRef} myStatus={myStatus} />}
             {activeTab === 'applications' && (
                 <ApplicationsView
                     user={user}
@@ -471,35 +474,103 @@ const StudentDashboard = () => {
     );
 };
 
-const DashboardView = ({ user, student, application, complaints, notices, navigate, setIsComplaintModalOpen, onProfilePicDelete, uploadingProfile }) => {
+const DashboardView = ({ user, student, application, complaints, notices, navigate, setIsComplaintModalOpen, onProfilePicDelete, uploadingProfile, myStatus }) => {
     return (
         <div className="space-y-8">
-            {/* Main Stats and Notices Grid */}
-            <div className="grid lg:grid-cols-2 gap-8">
-                {/* Left Side - Quick Actions and Stats */}
+            {/* Main Stats and Info Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Left Side - Quick Actions and Payment Summary */}
                 <div className="space-y-8">
-                    <div className="grid grid-cols-1 gap-6">
+                    <div className="grid grid-cols-2 gap-6">
                         <StatCard icon={HiOutlineChatBubbleLeftRight} label="Complaints" value={complaints.length} color="amber" />
+                        <StatCard 
+                            icon={HiOutlineCurrencyDollar} 
+                            label="Refundable Status" 
+                            value={student?.refundPayment?.paymentStatus || 'Not Paid'} 
+                            color={student?.refundPayment?.paymentStatus === 'Approved' ? 'emerald' : 'amber'} 
+                        />
                     </div>
 
-                    {/* Quick Stats Grid */}
+                    {/* Payment Summary Card */}
                     <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 shadow-sm border border-slate-50 dark:border-slate-800">
-                        <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 mb-6">Latest Notices</h3>
-                        <div className="space-y-4">
-                            {notices.slice(0, 2).map(n => (
-                                <div key={n._id} className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl flex justify-between items-center group cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 flex items-center justify-center text-indigo-500">
-                                            <HiOutlineMegaphone />
-                                        </div>
-                                        <div>
-                                            <div className="font-bold text-slate-800 dark:text-slate-200 text-sm">{n.title}</div>
-                                            <div className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase">{n.createdAt ? new Date(n.createdAt).toLocaleDateString() : 'N/A'}</div>
-                                        </div>
-                                    </div>
-                                    <HiOutlinePaperAirplane className="text-slate-300 group-hover:text-indigo-600 transition-colors" />
+                        <div className="flex items-center justify-between mb-6">
+                            <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Payment Summary</h3>
+                            <HiOutlineWallet className="text-2xl text-indigo-400" />
+                        </div>
+                        <div className="space-y-6">
+                            <div>
+                                <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3">Paid Months</div>
+                                <div className="flex flex-wrap gap-2">
+                                    {student?.submittedMonths?.filter(m => m.status === 'Accepted').length > 0 ? (
+                                        student.submittedMonths
+                                            .filter(m => m.status === 'Accepted')
+                                            .flatMap(m => m.months || [m.month])
+                                            .map((mon, idx) => (
+                                                <span key={idx} className="px-3 py-1 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-full text-[11px] font-black uppercase tracking-tight border border-emerald-100 dark:border-emerald-800">
+                                                    {mon}
+                                                </span>
+                                            ))
+                                    ) : (
+                                        <span className="text-xs font-bold text-slate-400 italic">No monthly payments recorded yet.</span>
+                                    )}
                                 </div>
-                            ))}
+                            </div>
+                            <div className="pt-4 border-t border-slate-50 dark:border-slate-800">
+                                <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Refundable Payment (PayID Summary)</div>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm font-bold text-slate-600 dark:text-slate-300">Amount Paid:</span>
+                                    <span className="text-sm font-black text-slate-800 dark:text-white">LKR {student?.refundPayment?.amount?.toLocaleString() || '0'}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Right Side - Activity Status */}
+                <div className="space-y-8">
+                    <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 shadow-sm border border-slate-50 dark:border-slate-800 h-full">
+                        <div className="flex items-center justify-between mb-8">
+                            <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Activity Status</h3>
+                            <div className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${myStatus?.status === 'INSIDE' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                                <span className={`w-2 h-2 rounded-full ${myStatus?.status === 'INSIDE' ? 'bg-emerald-500' : 'bg-rose-500'} animate-pulse`} />
+                                CURRENT {myStatus?.status || 'UNKNOWN'}
+                            </div>
+                        </div>
+
+                        <div className="space-y-8">
+                            <div className="flex items-start gap-6">
+                                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl ${myStatus?.status === 'INSIDE' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                                    <HiOutlineArrowsRightLeft />
+                                </div>
+                                <div className="space-y-1">
+                                    <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Last Activity</div>
+                                    <div className="text-lg font-black text-slate-800 dark:text-slate-200">
+                                        {myStatus?.lastAction ? `${myStatus.lastAction}` : 'No recent scans'}
+                                    </div>
+                                    <div className="text-xs font-bold text-slate-400">
+                                        {myStatus?.lastTime ? new Date(myStatus.lastTime).toLocaleString() : '—'}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {myStatus?.status === 'OUTSIDE' && (
+                                <div className="p-6 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border border-slate-100 dark:border-slate-800 space-y-3">
+                                    <div className="flex items-center gap-2 text-[10px] font-black text-rose-500 uppercase tracking-widest">
+                                        <HiOutlineMapPin className="text-lg" />
+                                        Current Destination
+                                    </div>
+                                    <p className="text-sm font-black text-slate-700 dark:text-slate-200 pl-6 border-l-2 border-rose-200">
+                                        {myStatus?.destination || 'N/A'}
+                                        {myStatus?.goingHome && <span className="ml-2 px-2 py-0.5 bg-indigo-100 text-indigo-600 rounded text-[9px]">Home Visit</span>}
+                                    </p>
+                                </div>
+                            )}
+
+                            <div className="pt-6 border-t border-slate-50 dark:border-slate-800">
+                                <p className="text-xs font-bold text-slate-400 dark:text-slate-500 italic leading-relaxed">
+                                    * Your attendance is automatically logged via QR scan at the security gate. Ensure your status is correct for safety compliance.
+                                </p>
+                            </div>
                         </div>
                     </div>
                 </div>

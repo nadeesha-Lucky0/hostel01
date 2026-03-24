@@ -157,7 +157,7 @@ const FinancialDashboard = () => {
                     className={`flex items-center gap-2 px-8 py-3 rounded-2xl text-xs font-black transition-all ${activeTab === 'deposits' ? 'bg-[#FAB95B] text-[#1A3263] shadow-lg shadow-[#FAB95B]/20 dark:shadow-none translate-y-[-1px]' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'}`}
                 >
                     <HiOutlineWallet className="text-lg" />
-                    SECURITY DEPOSITS
+                    REFUNDABLE PAYMENTS
                 </button>
                 <button
                     onClick={() => { setActiveTab('refunds'); setSelectedClearance(null); }}
@@ -184,7 +184,7 @@ const FinancialDashboard = () => {
                     {payments.length === 0 && !loading ? (
                         <div className="bg-white dark:bg-slate-900 rounded-3xl p-12 text-center border-2 border-dashed border-slate-200 dark:border-slate-800 transition-all">
                             <HiOutlineCurrencyDollar className="text-6xl text-slate-200 dark:text-slate-800 mx-auto mb-4" />
-                            <p className="text-slate-400 dark:text-slate-500 font-black uppercase tracking-widest text-xs font-mono">No security deposit submissions found</p>
+                            <p className="text-slate-400 dark:text-slate-500 font-black uppercase tracking-widest text-xs font-mono">No refundable payment submissions found</p>
                         </div>
                     ) : (
                         <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden transition-all">
@@ -193,7 +193,7 @@ const FinancialDashboard = () => {
                                     <thead>
                                         <tr className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 transition-colors">
                                             <th className="px-8 py-6 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Student</th>
-                                            <th className="px-8 py-6 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Initial Deposit</th>
+                                            <th className="px-8 py-6 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Refundable Payment</th>
                                             <th className="px-8 py-6 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Submission</th>
                                             <th className="px-8 py-6 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Status</th>
                                             <th className="px-8 py-6 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest text-right">Actions</th>
@@ -339,7 +339,7 @@ const FinancialDashboard = () => {
 
                                         <div className="relative z-10 grid grid-cols-2 gap-10 divide-x divide-white/10">
                                             <div className="space-y-2">
-                                                <span className="text-[10px] font-black text-indigo-300 uppercase tracking-[0.2em] block">Initial Deposit</span>
+                                                <span className="text-[10px] font-black text-indigo-300 uppercase tracking-[0.2em] block">Refundable Payment</span>
                                                 <p className="text-3xl font-black">LKR {selectedClearance.paymentHistory?.refundPayment?.amount?.toLocaleString() || '0'}</p>
                                             </div>
                                             <div className="pl-10 space-y-2">
