@@ -101,7 +101,7 @@
     }
 
     .nav-bar {
-        @apply fixed top-0 left-0 w-full z-50 transition-all duration-300;
+        @apply w-full z-50 transition-all duration-300;
         height: 72px;
         background: var(--primary);
         border-bottom: 1px solid rgba(255, 255, 255, 0.08);

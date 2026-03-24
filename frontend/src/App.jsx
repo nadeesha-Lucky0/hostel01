@@ -29,7 +29,7 @@ import WardenScanRecords from './pages/WardenScanRecords'
 const AppLayout = () => (
     <div className="flex flex-col min-h-screen">
         <NavigationBar />
-        <main className="flex-grow pt-[80px]">
+        <main className="flex-grow">
             <Outlet />
         </main>
     </div>
@@ -38,7 +38,7 @@ const AppLayout = () => (
 const StudentLayout = () => (
     <div className="flex flex-col min-h-screen">
         <StudentNavigationBar />
-        <main className="flex-grow pt-[80px]">
+        <main className="flex-grow">
             <Outlet />
         </main>
     </div>
@@ -47,7 +47,7 @@ const StudentLayout = () => (
 const FinancialLayout = () => (
     <div className="flex flex-col min-h-screen">
         <FinancialNavigationBar />
-        <main className="flex-grow pt-[80px]">
+        <main className="flex-grow">
             <Outlet />
         </main>
     </div>
@@ -56,7 +56,7 @@ const FinancialLayout = () => (
 const SecurityLayout = () => (
     <div className="flex flex-col min-h-screen">
         <SecurityNavigationBar />
-        <main className="flex-grow pt-[80px]">
+        <main className="flex-grow">
             <Outlet />
         </main>
     </div>
