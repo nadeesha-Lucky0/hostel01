@@ -28,10 +28,10 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
 
         if (!isLogin) {
             if (formData.role === 'student') {
-                // Check email format: ITXXXXXXXX@my.sliit.lk
-                const studentEmailRegex = /^IT\d{8}@my\.sliit\.lk$/i;
+                // Check email format: (IT|BM)XXXXXXXX@my.sliit.lk
+                const studentEmailRegex = /^(IT|BM)\d{8}@my\.sliit\.lk$/i;
                 if (!studentEmailRegex.test(formData.email)) {
-                    setError('Student email must be in the format ITXXXXXXXX@my.sliit.lk');
+                    setError('Student email must be in the format ITXXXXXXXX@my.sliit.lk or BMXXXXXXXX@my.sliit.lk');
                     setLoading(false);
                     return;
                 }
@@ -153,7 +153,7 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
                                         type="text"
                                         required
                                         className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
-                                        placeholder="IT21000000"
+                                        placeholder="IT21000000 or BM21000000"
                                         value={formData.studentId}
                                         onChange={(e) => setFormData({ ...formData, studentId: e.target.value })}
                                     />

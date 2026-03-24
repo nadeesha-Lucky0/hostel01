@@ -14,12 +14,12 @@ const register = async (req, res) => {
 
         // Validation for Student ID and Email format matching for students
         if (userRole === 'student') {
-            // Check email format: ITXXXXXXXX@my.sliit.lk
-            const studentEmailRegex = /^IT\d{8}@my\.sliit\.lk$/i;
+            // Check email format: (IT|BM)XXXXXXXX@my.sliit.lk
+            const studentEmailRegex = /^(IT|BM)\d{8}@my\.sliit\.lk$/i;
             if (!studentEmailRegex.test(email)) {
                 return res.status(400).json({ 
                     success: false, 
-                    message: 'Registration failed: Student email must be in the format ITXXXXXXXX@my.sliit.lk' 
+                    message: 'Registration failed: Student email must be in the format ITXXXXXXXX@my.sliit.lk or BMXXXXXXXX@my.sliit.lk' 
                 });
             }
 
