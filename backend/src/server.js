@@ -56,10 +56,16 @@ app.get("/", (req, res) => {
   res.send("Smart Hostel API is running...");
 });
 
+<<<<<<< HEAD
 // 404 Handler - MUST be after all routes
 app.use((req, res) => {
   console.log(`404 - Not Found: ${req.method} ${req.originalUrl}`);
   res.status(404).json({ success: false, msg: `Route ${req.originalUrl} not found` });
+=======
+// Catch-all for React Router
+app.get('*', (req, res) => {
+  res.sendFile(path.resolve(frontendPath, 'index.html'));
+>>>>>>> b8196ee (Fix catch-all route and update JS/JSX files)
 });
 
 // Multer / file upload error handler
