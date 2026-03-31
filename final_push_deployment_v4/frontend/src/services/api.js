@@ -1,0 +1,398 @@
+// ===== REAL API BACKEND CONNECTED =====
+const API_BASE = '/api';
+
+export const api = {
+    // Floors
+    getFloors: async (wing) => {
+        const params = new URLSearchParams();
+        if (wing) params.append('wing', wing);
+        params.append('_t', Date.now());
+        const res = await fetch(`${API_BASE}/floors?${params}`);
+        if (!res.ok) throw new Error('Failed to fetch floors');
+        return res.json();
+    },
+
+    addFloorsBulk: async (data) => {
+        const res = await fetch(`${API_BASE}/floors/bulk`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || 'Failed to add floors');
+        }
+        return res.json();
+    },
+
+    addFloor: async (data) => {
+        const res = await fetch(`${API_BASE}/floors`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || 'Failed to add floor');
+        }
+        return res.json();
+    },
+
+    toggleFloor: async (id) => {
+        const res = await fetch(`${API_BASE}/floors/${id}/toggle`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || 'Failed to toggle floor');
+        }
+        return res.json();
+    },
+
+    deleteFloor: async (id) => {
+        const res = await fetch(`${API_BASE}/floors/${id}`, { method: 'DELETE' });
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || 'Failed to delete floor');
+        }
+        return res.json();
+    },
+
+    // Rooms
+    getRooms: async (params = {}) => {
+        const p = new URLSearchParams();
+        if (params.floor) p.append('floor', params.floor);
+        if (params.wing) p.append('wing', params.wing);
+        if (params.activeOnly) p.append('activeOnly', params.activeOnly);
+        p.append('_t', Date.now());
+        const res = await fetch(`${API_BASE}/rooms?${p}`);
+        if (!res.ok) throw new Error('Failed to fetch rooms');
+        return res.json();
+    },
+
+    addRoom: async (data) => {
+        const res = await fetch(`${API_BASE}/rooms`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || 'Failed to add room');
+        }
+        return res.json();
+    },
+
+    updateRoom: async (id, data) => {
+        const res = await fetch(`${API_BASE}/rooms/${id}`, {
+            method: 'PUT', // or PATCH if backend supports Partial
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || 'Failed to update room');
+        }
+        return res.json();
+    },
+
+    toggleRoom: async (id) => {
+        const res = await fetch(`${API_BASE}/rooms/${id}/toggle`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || 'Failed to toggle room');
+        }
+        return res.json();
+    },
+
+    // Students (Financial Payments)
+    getStudents: async (params = {}) => {
+        // Backend route is /api/student-payments/all
+        // It returns list with isAllocated flag
+        const res = await fetch(`${API_BASE}/student-payments/all`, {
+            headers: { 'Authorization': `Bearer ${sessionStorage.getItem('hostel_token')}` }
+        });
+        if (!res.ok) throw new Error('Failed to fetch students');
+        let data = await res.json();
+
+        // Frontend filtering (backend currently returns all, we filter here for compat or update backend to filter)
+        // Backend `student-payments/all` returns all records with allocation status.
+        if (params.wing) data = data.filter(s => s.wing === params.wing);
+        if (params.paymentStatus) data = data.filter(s => s.paymentStatus === params.paymentStatus);
+        if (params.isAllocated !== undefined) {
+            const isAlloc = params.isAllocated === 'true';
+            data = data.filter(s => !!s.isAllocated === isAlloc);
+        }
+        return data; // Sorted by backend (rollNumber) or we sort by date here? 
+        // Mock sorted by applicationDate. 
+        // Real backend returns sorted by rollNumber.
+    },
+
+    getStudent: async (id) => {
+        // ID could be _id or rollNumber. The detail modal uses _id usually.
+        // My backend /api/student-payments/roll/:rollNumber looks up by rollNumber.
+        // But if I pass _id, I need an endpoint for it or filter from list?
+        // Let's assume we can fetch by ID from the list if we cache it, or add getById to backend.
+        // For now, let's just fetch all and find? No, that's inefficient.
+        // Let's try to fetch by rollNumber if the ID passed is actually a rollNumber, or add /:id support.
+        // The `StudentApplications.jsx` uses `student._id`.
+        // I'll add a check: if it looks like MongoDB ID, use a filter on client side or add endpoint.
+        // Actually, let's just re-fetch getStudents and find it for now to be safe without changing backend too much.
+        const res = await fetch(`${API_BASE}/student-payments/all`, {
+            headers: { 'Authorization': `Bearer ${sessionStorage.getItem('hostel_token')}` }
+        });
+        const data = await res.json();
+        return data.find(s => s._id === id);
+    },
+
+    updatePayment: async (id, status) => {
+        // Read-only
+        throw new Error('Financial Data is Read-Only. Cannot update payment status.');
+    },
+
+    // Allocations
+    getAllocations: async (params = {}) => {
+        const p = new URLSearchParams(params);
+        const res = await fetch(`${API_BASE}/allocations?${p}`);
+        if (!res.ok) throw new Error('Failed to fetch allocations');
+        return res.json();
+    },
+
+    allocate: async ({ studentId, roomId, bedId }) => {
+        const res = await fetch(`${API_BASE}/allocations`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ studentId, roomId, bedId })
+        });
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || 'Failed to allocate');
+        }
+        return res.json();
+    },
+
+    updateAllocation: async (id, data) => {
+        const res = await fetch(`${API_BASE}/allocations/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || 'Failed to update allocation');
+        }
+        return res.json();
+    },
+
+    deleteAllocation: async (id) => {
+        const res = await fetch(`${API_BASE}/allocations/${id}`, { method: 'DELETE' });
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || 'Failed to delete allocation');
+        }
+        return res.json();
+    },
+
+    getSuggestions: async (wing, degree) => {
+        const p = new URLSearchParams({ wing, degree });
+        const res = await fetch(`${API_BASE}/allocations/suggest?${p}`);
+        if (!res.ok) throw new Error('Failed to get suggestions');
+        return res.json();
+    },
+
+    getStats: async () => {
+        const res = await fetch(`${API_BASE}/stats`); // Server proxies to /api/allocations/stats
+        if (!res.ok) throw new Error('Failed to fetch stats');
+        return res.json();
+    },
+
+    getExportUrl: (format, params = {}) => {
+        const p = new URLSearchParams(params);
+        p.append('format', format);
+        return `${API_BASE}/allocations/export?${p}`;
+    },
+
+    getDegrees: async () => {
+        const res = await fetch(`${API_BASE}/allocations/degrees`);
+        if (!res.ok) throw new Error('Failed to fetch degrees');
+        return res.json();
+    },
+
+    // Applications
+    getApplications: async () => {
+        const token = sessionStorage.getItem('hostel_token');
+        const res = await fetch(`${API_BASE}/applications`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) {
+            let errMsg = `${res.status} Failed to fetch applications`;
+            try {
+                const err = await res.json();
+                errMsg = `${res.status} ${err.error || err.message || errMsg}`;
+            } catch (_) {}
+            throw new Error(errMsg);
+        }
+        return res.json();
+    },
+
+    getApplication: async (id) => {
+        const token = sessionStorage.getItem('hostel_token');
+        const res = await fetch(`${API_BASE}/applications/${id}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error('Failed to fetch application');
+        return res.json();
+    },
+
+    updateApplication: async (id, data) => {
+        const token = sessionStorage.getItem('hostel_token');
+        const res = await fetch(`${API_BASE}/applications/${id}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(data)
+        });
+        if (!res.ok) {
+            let errMsg = 'Failed to update application';
+            try {
+                const errData = await res.json();
+                errMsg = errData.error || errData.message || errMsg;
+            } catch (_) {}
+            throw new Error(errMsg);
+        }
+        return res.json();
+    },
+
+    // Notices
+    getNotices: async () => {
+        const res = await fetch(`${API_BASE}/notices`);
+        if (!res.ok) throw new Error('Failed to fetch notices');
+        return res.json();
+    },
+
+    createNotice: async (formData) => {
+        const token = sessionStorage.getItem('hostel_token');
+        const res = await fetch(`${API_BASE}/notices`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            },
+            body: formData
+        });
+
+        const contentType = res.headers.get("content-type");
+        if (!res.ok) {
+            if (contentType && contentType.indexOf("application/json") !== -1) {
+                const err = await res.json();
+                throw new Error(err.msg || err.error || 'Failed to create notice');
+            } else {
+                const text = await res.text();
+                console.error("Non-JSON Error Response:", text);
+                throw new Error(`Server Error (${res.status}): Please check backend logs.`);
+            }
+        }
+
+        return res.json();
+    },
+
+    deleteNotice: async (id) => {
+        const token = sessionStorage.getItem('hostel_token');
+        const res = await fetch(`${API_BASE}/notices/${id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error('Failed to delete notice');
+        return res.json();
+    },
+
+    updateNotice: async (id, formData, queryParams = '') => {
+        const token = sessionStorage.getItem('hostel_token');
+        const res = await fetch(`${API_BASE}/notices/${id}${queryParams}`, {
+            method: 'PUT',
+            headers: { 'Authorization': `Bearer ${token}` },
+            body: formData
+        });
+        const contentType = res.headers.get('content-type');
+        if (!res.ok) {
+            if (contentType && contentType.includes('application/json')) {
+                const err = await res.json();
+                throw new Error(err.msg || err.error || 'Failed to update notice');
+            }
+            throw new Error(`Server Error (${res.status})`);
+        }
+        return res.json();
+    },
+
+    // Warden - Monthly Payments
+    getMonthlySubmissions: async () => {
+        const token = sessionStorage.getItem('hostel_token');
+        const res = await fetch(`${API_BASE}/student-payments/monthly-submissions`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error('Failed to fetch monthly submissions');
+        return res.json();
+    },
+
+    updateMonthlyStatus: async (studentId, submissionId, status) => {
+        const token = sessionStorage.getItem('hostel_token');
+        const res = await fetch(`${API_BASE}/student-payments/monthly-submissions/${studentId}/${submissionId}`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ status })
+        });
+        if (!res.ok) throw new Error('Failed to update status');
+        return res.json();
+    },
+
+    // Clearance
+    getClearances: async () => {
+        const token = sessionStorage.getItem('hostel_token');
+        const res = await fetch(`${API_BASE}/clearance`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error('Failed to fetch clearances');
+        return res.json();
+    },
+
+    getClearancesFinancial: async () => {
+        const token = sessionStorage.getItem('hostel_token');
+        const res = await fetch(`${API_BASE}/clearance/financial`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error('Failed to fetch clearances');
+        return res.json();
+    },
+
+    updateClearanceWarden: async (id, data) => {
+        const token = sessionStorage.getItem('hostel_token');
+        const res = await fetch(`${API_BASE}/clearance/${id}/warden`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(data)
+        });
+        if (!res.ok) throw new Error('Failed to update clearance');
+        return res.json();
+    },
+
+    deleteClearance: async () => {
+        const token = sessionStorage.getItem('hostel_token');
+        const res = await fetch(`${API_BASE}/clearance/me`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error('Failed to delete clearance form');
+        return res.json();
+    }
+};
