@@ -22,7 +22,6 @@ const resourceRoutes = require("./routes/resourceRoutes.js");
 const { getStats } = require("./controllers/allocationController.js");
 const { ensureDefaultAdmin } = require("./utils/ensureDefaultAdmin.js");
 
-
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
 const app = express();
@@ -52,20 +51,13 @@ app.use("/api/leave", leaveRoutes);
 app.use("/api/resources", resourceRoutes);
 app.get("/api/stats", getStats);
 
-app.get("/", (req, res) => {
-  res.send("Smart Hostel API is running...");
-});
+// Serve static assets (Frontend)
+const frontendPath = path.join(__dirname, '../../frontend/dist');
+app.use(express.static(frontendPath));
 
-<<<<<<< HEAD
-// 404 Handler - MUST be after all routes
-app.use((req, res) => {
-  console.log(`404 - Not Found: ${req.method} ${req.originalUrl}`);
-  res.status(404).json({ success: false, msg: `Route ${req.originalUrl} not found` });
-=======
-// Catch-all for React Router
+// Catch-all for React Router - MUST be after all other routes
 app.get('*', (req, res) => {
   res.sendFile(path.resolve(frontendPath, 'index.html'));
->>>>>>> b8196ee (Fix catch-all route and update JS/JSX files)
 });
 
 // Multer / file upload error handler
@@ -73,7 +65,6 @@ const multer = require('multer');
 app.use((err, req, res, next) => {
   console.error("Global Error Handler:", err);
   if (err instanceof multer.MulterError) {
-    // Multer-specific errors (file too large, too many files, etc.)
     return res.status(400).json({ success: false, msg: `Upload Error: ${err.message}` });
   }
   if (err && err.message && err.message.includes('File type')) {
