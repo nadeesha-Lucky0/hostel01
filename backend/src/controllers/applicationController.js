@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const Application = require("../models/Application");
+const Notification = require("../models/Notification");
 const User = require("../models/User");
 const { cloudinary } = require("../config/cloudinary");
 
@@ -15,7 +16,7 @@ function isValidRollPrefixForGender(roll, gender) {
 }
 
 function isValidSliitEmail(email) {
-  return /^[a-zA-Z]{2}\d{8}@my\.sliit\.lk$/i.test((email || "").trim());
+  return /^it\d{8}@my\.sliit\.lk$/i.test((email || "").trim());
 }
 
 function isValidTenDigitContact(number) {
@@ -27,7 +28,7 @@ function validateApplicationData(payload) {
     return "Invalid NIC format. Use 12 digits or 9 digits + V.";
   }
   if (payload.studentEmail && !isValidSliitEmail(payload.studentEmail)) {
-    return "studentEmail must match a valid SLIIT format (e.g. itxxxxxxxx@my.sliit.lk or bmxxxxxxxx@my.sliit.lk).";
+    return "studentEmail must match itxxxxxxxx@my.sliit.lk format.";
   }
   if (payload.studentEmail && payload.registrationNumber) {
     const emailPrefix = payload.studentEmail.split('@')[0].toUpperCase();
@@ -62,6 +63,21 @@ async function generateRollNumber(gender) {
   return `${prefix}${maxNum + 1}`;
 }
 
+async function createNotificationForStudent({ studentId, applicationId, type, title, message }) {
+  if (!studentId) return;
+  try {
+    await Notification.create({
+      student: studentId,
+      application: applicationId || undefined,
+      type: type || "info",
+      title,
+      message,
+    });
+  } catch (error) {
+    // notification failures should not block core application flows
+    console.error("notification create failed:", error.message);
+  }
+}
 
 async function getStudentEmailById(studentId) {
   if (!studentId) return "";
@@ -207,6 +223,13 @@ async function createApplication(req, res) {
 
     const newApplication = new Application(payload);
     await newApplication.save();
+    await createNotificationForStudent({
+      studentId: newApplication.student,
+      applicationId: newApplication._id,
+      type: "success",
+      title: "Application Submitted",
+      message: "Your hostel application has been submitted successfully.",
+    });
     res.status(201).json(newApplication);
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -232,139 +255,23 @@ async function getMyApplication(req, res) {
 // retrieve all applications (admin/finance/warden)
 async function getAllApplications(req, res) {
   try {
-    const filter = {};
-    if (req.query.search) {
-      const searchRegex = new RegExp(req.query.search, 'i');
-      filter.$or = [
-        { studentName: searchRegex },
-        { studentEmail: searchRegex },
-        { studentRollNumber: searchRegex }
-      ];
-    }
-
-    if (req.query.status && req.query.status !== 'all') {
-      const activeStatuses = ['Activated', 'Room Allocated'];
-      const pendingStatuses = ['Pending', 'Payment Approved'];
-      if (req.query.status === 'active') filter.applicationStatus = { $in: activeStatuses };
-      else if (req.query.status === 'pending') filter.applicationStatus = { $in: pendingStatuses };
-      else filter.applicationStatus = req.query.status;
-    }
-
-    const applications = await Application.find(filter).sort({ createdAt: -1 });
+    const applications = await Application.find();
     res.status(200).json(applications);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 }
 
-// export applications as CSV or PDF
-async function exportApplications(req, res) {
-  try {
-    const filter = {};
-    if (req.query.search) {
-      const searchRegex = new RegExp(req.query.search, 'i');
-      filter.$or = [
-        { studentName: searchRegex },
-        { studentEmail: searchRegex },
-        { studentRollNumber: searchRegex }
-      ];
-    }
-    if (req.query.status && req.query.status !== 'all') {
-      const activeStatuses = ['Activated', 'Room Allocated'];
-      const pendingStatuses = ['Pending', 'Payment Approved'];
-      if (req.query.status === 'active') filter.applicationStatus = { $in: activeStatuses };
-      else if (req.query.status === 'pending') filter.applicationStatus = { $in: pendingStatuses };
-      else filter.applicationStatus = req.query.status;
-    }
-
-    const applications = await Application.find(filter).sort({ createdAt: -1 });
-    const format = req.query.format || 'csv';
-
-    if (format === 'csv') {
-      const { Parser } = require('json2csv');
-      const fields = [
-        { label: 'Student Name', value: 'studentName' },
-        { label: 'Roll Number', value: 'studentRollNumber' },
-        { label: 'Email', value: 'studentEmail' },
-        { label: 'Wing', value: 'studentWing' },
-        { label: 'Degree', value: 'studentDegree' },
-        { label: 'Status', value: 'applicationStatus' },
-        { label: 'Applied At', value: row => new Date(row.createdAt).toLocaleDateString() }
-      ];
-      const parser = new Parser({ fields });
-      const csv = parser.parse(applications);
-      res.header('Content-Type', 'text/csv');
-      res.attachment('applications.csv');
-      return res.send(csv);
-    }
-
-    if (format === 'pdf') {
-      const PDFDocument = require('pdfkit');
-      const doc = new PDFDocument({ margin: 40, size: 'A4', layout: 'landscape' });
-      res.header('Content-Type', 'application/pdf');
-      res.attachment('applications.pdf');
-      doc.pipe(res);
-
-      doc.fontSize(18).text('Student Application Records', { align: 'center' });
-      doc.moveDown();
-
-      const headers = ['Name', 'ID', 'Email', 'Wing', 'Degree', 'Status', 'Date'];
-      const colWidths = [120, 70, 150, 50, 100, 80, 70];
-      let y = doc.y;
-      let x = 40;
-
-      doc.fontSize(10).font('Helvetica-Bold');
-      headers.forEach((h, i) => {
-        doc.text(h, x, y, { width: colWidths[i] });
-        x += colWidths[i] + 10;
-      });
-
-      doc.font('Helvetica').fontSize(9);
-      y += 20;
-
-      applications.forEach((a) => {
-        if (y > 550) {
-          doc.addPage();
-          y = 40;
-        }
-        x = 40;
-        const vals = [
-          a.studentName,
-          a.studentRollNumber,
-          a.studentEmail,
-          a.studentWing,
-          a.studentDegree,
-          a.applicationStatus,
-          new Date(a.createdAt).toLocaleDateString()
-        ];
-        vals.forEach((v, i) => {
-          doc.text(String(v || '-'), x, y, { width: colWidths[i] });
-          x += colWidths[i] + 10;
-        });
-        y += 18;
-      });
-
-      doc.end();
-      return;
-    }
-
-    res.status(400).json({ error: 'Invalid format' });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-}
-
-// retrieve a single application by ID
+// retrieve single application by id
 async function getApplicationById(req, res) {
   try {
     const app = await Application.findById(req.params.id);
-    if (!app) return res.status(404).json({ error: "Application not found" });
-    res.status(200).json(app);
+    if (!app) return res.status(404).json({ error: "Not found" });
+    res.json(app);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 }
-
 
 // finance manager approves or rejects payment slip
 async function updatePaymentStatus(req, res) {
@@ -378,6 +285,13 @@ async function updatePaymentStatus(req, res) {
       app.applicationStatus = "Rejected";
     }
     await app.save();
+    await createNotificationForStudent({
+      studentId: app.student,
+      applicationId: app._id,
+      type: status === "Approved" ? "success" : "error",
+      title: "Payment Status Updated",
+      message: `Payment status changed to ${status}.`,
+    });
     res.json(app);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -396,6 +310,13 @@ async function allocateRoom(req, res) {
     app.assignedRoom = room;
     app.applicationStatus = "Room Allocated";
     await app.save();
+    await createNotificationForStudent({
+      studentId: app.student,
+      applicationId: app._id,
+      type: "success",
+      title: "Room Allocated",
+      message: `Your room has been allocated${room ? `: ${room}` : "."}`,
+    });
     res.json(app);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -407,7 +328,7 @@ async function updateApplication(req, res) {
   try {
     const updates = req.body;
     const before = await Application.findById(req.params.id);
-    const app = await Application.findByIdAndUpdate(req.params.id, updates, { returnDocument: 'after' });
+    const app = await Application.findByIdAndUpdate(req.params.id, updates, { new: true });
 
     if (!app) {
       return res.status(404).json({ error: "Application not found" });
@@ -424,6 +345,15 @@ async function updateApplication(req, res) {
         if (accountStatus) {
           await User.findByIdAndUpdate(app.student, { accountStatus });
         }
+
+        // Send notification
+        await createNotificationForStudent({
+          studentId: app.student,
+          applicationId: app._id,
+          type: "status_update",
+          title: "Application Status Updated",
+          message: `Your application status has been changed to: ${app.applicationStatus}`,
+        });
       }
     }
 
@@ -475,10 +405,17 @@ async function updateMyApplication(req, res) {
     const app = await Application.findByIdAndUpdate(
       existing._id,
       { ...updates, student: req.user.id },
-      { returnDocument: 'after', runValidators: false }
+      { new: true, runValidators: false }
     );
     if (!app) return res.status(404).json({ error: "No application found for this student" });
 
+    await createNotificationForStudent({
+      studentId: req.user.id,
+      applicationId: app._id,
+      type: "info",
+      title: "Application Updated",
+      message: "Your hostel application details were updated.",
+    });
     res.json(app);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -523,6 +460,13 @@ async function deleteMyApplication(req, res) {
 
     await Application.findByIdAndDelete(existing._id);
 
+    await createNotificationForStudent({
+      studentId: req.user.id,
+      applicationId: existing._id,
+      type: "error",
+      title: "Application Deleted",
+      message: "Your hostel application was deleted.",
+    });
     res.json({ message: "Deleted" });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -554,7 +498,7 @@ async function updatePublicApplication(req, res) {
     delete updates.applicationStatus;
 
     const app = await Application.findByIdAndUpdate(req.params.id, updates, {
-      returnDocument: 'after',
+      new: true,
       runValidators: true,
     });
     if (!app) return res.status(404).json({ error: "Not found" });
@@ -589,7 +533,7 @@ module.exports = {
   createApplication,
   getMyApplication,
   getAllApplications,
-
+  getApplicationById,
   updatePaymentStatus,
   allocateRoom,
   updateApplication,
@@ -598,6 +542,4 @@ module.exports = {
   deleteMyApplication,
   updatePublicApplication,
   deletePublicApplication,
-  exportApplications,
-  getApplicationById,
 };

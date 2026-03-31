@@ -16,15 +16,15 @@ const WardenScanRecords = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [filter, setFilter] = useState('all'); // 'all', 'entry', 'exit', 'outside'
 
-    const fetchLogs = useCallback(async (showLoader = true) => {
+    const fetchLogs = useCallback(async () => {
         const token = user?.token || sessionStorage.getItem('hostel_token');
         if (!token) {
-            if (showLoader) setLoading(false);
+            setLoading(false);
             return;
         }
 
         try {
-            if (showLoader) setLoading(true);
+            setLoading(true);
             const [logsRes, outsideRes] = await Promise.all([
                 fetch('/api/qr/logs', { headers: { 'Authorization': `Bearer ${token}` } }),
                 fetch('/api/qr/outside', { headers: { 'Authorization': `Bearer ${token}` } })
@@ -35,9 +35,9 @@ const WardenScanRecords = () => {
 
             const formattedLogs = Array.isArray(logsData) ? logsData : [];
             const formattedOutside = (outsideData.outside || []).map(o => ({
-                _id: `outside-${o.student?.studentId || 'student'}-${o.lastExitAt}`,
-                studentUserId: { name: o.student?.name },
-                studentId: o.student?.studentId,
+                _id: `outside-${o.studentId}-${o.lastExitAt}`,
+                studentUserId: { name: o.name },
+                studentId: o.studentId,
                 action: 'exit',
                 destination: o.destination,
                 timestamp: o.lastExitAt,
@@ -48,22 +48,19 @@ const WardenScanRecords = () => {
 
             setLogs(formattedLogs);
             setFilteredLogs(formattedLogs); // default to all
+            // Store outside students separately to avoid mixing them into 'all' if not desired, 
+            // but the user wants it as a tab.
             window.lastOutsideData = formattedOutside; 
         } catch (err) {
             console.error('Fetch Error:', err);
             toast.error('Failed to load activity records');
         } finally {
-            if (showLoader) setLoading(false);
+            setLoading(false);
         }
     }, [user]);
 
     useEffect(() => {
         fetchLogs();
-        const refreshInterval = setInterval(() => {
-            fetchLogs(false);
-        }, 10000);
-
-        return () => clearInterval(refreshInterval);
     }, [fetchLogs]);
 
     useEffect(() => {
@@ -96,7 +93,7 @@ const WardenScanRecords = () => {
     }, [searchTerm, filter, logs]);
 
     const handleExport = () => {
-        const headers = ["Date", "Time", "Student Name", "IT Number", "Action", "Destination", "Overnight", "Late"];
+        const headers = ["Date", "Time", "Student Name", "IT Number", "Action", "Destination", "Overnight", "Status", "Late"];
         const csvData = filteredLogs.map(l => [
             new Date(l.timestamp).toLocaleDateString(),
             new Date(l.timestamp).toLocaleTimeString(),
@@ -105,6 +102,7 @@ const WardenScanRecords = () => {
             (l.isCurrentlyOutside ? 'OUTSIDE' : l.action).toUpperCase(),
             l.destination || 'N/A',
             l.goingHome ? 'YES' : 'NO',
+            l.isCurrentlyOutside ? 'STILL OUTSIDE' : 'LOGGED',
             l.isLate ? 'YES' : 'NO'
         ]);
 
@@ -120,11 +118,11 @@ const WardenScanRecords = () => {
     };
 
     return (
-        <div className="p-4 sm:p-10 space-y-10 w-full animate-fade-in transition-colors">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
+        <div className="p-4 sm:p-8 space-y-8 max-w-7xl mx-auto animate-fade-in transition-colors">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight transition-colors">Student <span className="text-indigo-500 italic">In/Out</span> Logs</h2>
-                    <p className="text-slate-500 dark:text-slate-400 font-medium text-sm mt-1 transition-colors">Audit trail of student movements and overnight stays.</p>
+                    <p className="text-slate-500 dark:text-slate-400 font-medium text-sm mt-1 transition-colors">Complete audit trail of student gate movements and overnight stays.</p>
                 </div>
                 
                 <button 
@@ -136,86 +134,107 @@ const WardenScanRecords = () => {
                 </button>
             </div>
 
-            <div className="flex flex-col md:flex-row gap-4">
-                <div className="flex-grow relative group">
-                    <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-slate-400 dark:text-slate-500 transition-colors">
-                        <HiOutlineMagnifyingGlass className="text-xl group-focus-within:text-indigo-500 transition-colors" />
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                {/* Search & Filters */}
+                <div className="md:col-span-12 flex flex-col sm:flex-row gap-4">
+                    <div className="flex-grow relative group">
+                        <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-slate-400 dark:text-slate-500 transition-colors">
+                            <HiOutlineMagnifyingGlass className="text-xl group-focus-within:text-indigo-500 transition-colors" />
+                        </div>
+                        <input 
+                            type="text" 
+                            className="w-full pl-12 pr-4 py-4 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/5 rounded-2xl text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none font-medium shadow-sm"
+                            placeholder="Search by student, ID, or destination..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
                     </div>
-                    <input 
-                        type="text" 
-                        className="w-full pl-12 pr-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/5 rounded-2xl text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none font-medium text-sm shadow-sm"
-                        placeholder="Search by student, ID, or destination..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
+
+                    <div className="flex gap-2 p-1 bg-slate-100 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-white/5 h-fit self-center transition-colors">
+                        {['all', 'entry', 'exit', 'outside'].map(f => (
+                            <button
+                                key={f}
+                                onClick={() => setFilter(f)}
+                                className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${filter === f ? 'text-[#1A3263] shadow-md' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-white'}`}
+                                style={filter === f ? { backgroundColor: '#FAB95B' } : {}}
+                            >
+                                {f}
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
-                <div className="flex gap-2 p-1 bg-slate-100 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-white/5 h-fit self-center transition-colors">
-                    {['all', 'entry', 'exit', 'outside'].map(f => (
-                        <button
-                            key={f}
-                            onClick={() => setFilter(f)}
-                            className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${filter === f ? 'text-[#1A3263] shadow-md' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-white'}`}
-                            style={filter === f ? { backgroundColor: '#FAB95B' } : {}}
-                        >
-                            {f}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            <div className="card dark:bg-slate-900 dark:border-slate-800" style={{ padding: 0, overflow: 'hidden', marginBottom: 0 }}>
-                <div className="table-container">
-                    <table className="w-full text-left">
-                        <thead>
-                            <tr className="border-b border-slate-100 dark:border-white/5">
-                                <th className="px-8 py-6 text-[11px] font-black text-slate-500 dark:text-white/40 uppercase tracking-widest">Student Information</th>
-                                <th className="px-8 py-6 text-[11px] font-black text-slate-500 dark:text-white/40 uppercase tracking-widest text-center">Action</th>
-                                <th className="px-8 py-6 text-[11px] font-black text-slate-500 dark:text-white/40 uppercase tracking-widest text-center">Date & Time</th>
-                                <th className="px-8 py-6 text-[11px] font-black text-slate-500 dark:text-white/40 uppercase tracking-widest text-right">Destination</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-white/5">
-                            {loading ? (
-                                <tr><td colSpan="4" className="text-center py-16 text-slate-400">Loading...</td></tr>
-                            ) : filteredLogs.length === 0 ? (
-                                <tr><td colSpan="4" className="px-8 py-20 text-center text-slate-400 dark:text-slate-500 italic font-medium">No activity records found.</td></tr>
-                            ) : (
-                                filteredLogs.map(log => (
+                {/* Table */}
+                <div className="md:col-span-12 bg-white dark:bg-slate-900/40 rounded-[2.5rem] border border-slate-200 dark:border-white/5 overflow-hidden shadow-2xl transition-colors">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead>
+                                <tr className="bg-slate-50 dark:bg-white/[0.02] transition-colors border-b border-slate-100 dark:border-white/5">
+                                    <th className="px-8 py-5 text-[10px] font-black text-slate-500 dark:text-white/40 uppercase tracking-widest">Date & Time</th>
+                                    <th className="px-8 py-5 text-[10px] font-black text-slate-500 dark:text-white/40 uppercase tracking-widest">Student Information</th>
+                                    <th className="px-8 py-5 text-[10px] font-black text-slate-500 dark:text-white/40 uppercase tracking-widest">Action</th>
+                                    <th className="px-8 py-5 text-[10px] font-black text-slate-500 dark:text-white/40 uppercase tracking-widest">Destination</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+                                {loading ? (
+                                    Array.from({ length: 5 }).map((_, i) => (
+                                        <tr key={i} className="animate-pulse">
+                                            <td colSpan="4" className="px-8 py-6">
+                                                <div className="h-4 bg-slate-100 dark:bg-white/5 rounded-full w-full"></div>
+                                            </td>
+                                        </tr>
+                                    ))
+                                ) : filteredLogs.length === 0 ? (
+                                    <tr><td colSpan="4" className="px-8 py-20 text-center text-slate-400 dark:text-slate-500 italic font-medium">No activity records found matching your selection.</td></tr>
+                                ) : filteredLogs.map(log => (
                                     <tr key={log._id} className="hover:bg-slate-50 dark:hover:bg-white/[0.01] transition-colors group">
                                         <td className="px-8 py-6">
-                                            <div>
-                                                <p className="text-[13px] font-bold text-slate-800 dark:text-slate-200 transition-colors leading-tight">{log.studentUserId?.name || 'N/A'}</p>
-                                                <p className="text-[11px] font-medium text-slate-400 dark:text-slate-500 tracking-tight transition-colors mt-0.5">{log.studentId}</p>
-                                            </div>
-                                        </td>
-                                        <td className="px-8 py-6 text-center">
-                                            <div className="flex justify-center">
-                                                <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-colors shadow-sm border ${
-                                                    log.isCurrentlyOutside ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20' :
-                                                    log.action === 'entry' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' : 
-                                                    'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
-                                                }`}>
-                                                    {log.isCurrentlyOutside ? 'Outside' : log.action}
-                                                </span>
-                                            </div>
-                                        </td>
-                                        <td className="px-8 py-6 text-center">
                                             <div className="flex flex-col">
-                                                <span className="text-slate-500 dark:text-slate-300 font-bold text-[12px] transition-colors leading-tight">{new Date(log.timestamp).toLocaleDateString()}</span>
-                                                <span className="text-slate-400 dark:text-white/20 text-[10px] font-medium italic transition-colors leading-tight">{new Date(log.timestamp).toLocaleTimeString()}</span>
+                                                <span className="text-slate-900 dark:text-white font-black text-sm transition-colors">{new Date(log.timestamp).toLocaleDateString()}</span>
+                                                <span className="text-slate-400 dark:text-white/30 text-[10px] font-bold mt-0.5 italic transition-colors">{new Date(log.timestamp).toLocaleTimeString()}</span>
                                             </div>
                                         </td>
-                                        <td className="px-8 py-6 text-right">
-                                            <p className="text-[13px] font-medium text-slate-600 dark:text-white/40 max-w-xs truncate transition-colors leading-tight ml-auto">
-                                                {log.destination || '—'}
-                                            </p>
+                                        <td className="px-8 py-6">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-extrabold shadow-inner transition-colors">
+                                                    {log.studentUserId?.name?.[0]}
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-black text-slate-900 dark:text-white transition-colors">{log.studentUserId?.name || 'N/A'}</p>
+                                                    <p className="text-[10px] font-bold text-slate-400 dark:text-white/30 tracking-tight transition-colors">{log.studentId}</p>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-8 py-6">
+                                            <div className="flex flex-col gap-1">
+                                                <span className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-colors w-fit ${
+                                                    log.isCurrentlyOutside ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20' :
+                                                    log.action === 'entry' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' : 
+                                                    'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                                                }`}>
+                                                    {log.isCurrentlyOutside ? 'Currently Outside' : log.action}
+                                                </span>
+                                                {log.action === 'exit' && log.goingHome && (
+                                                    <span className="px-2 py-0.5 bg-indigo-500/10 text-indigo-500 dark:text-indigo-400 rounded-lg text-[9px] font-black uppercase tracking-widest border border-indigo-500/20 w-fit">
+                                                        Overnight Stay
+                                                    </span>
+                                                )}
+                                                {log.isCurrentlyOutside && log.isLate && (
+                                                    <span className="px-2 py-0.5 bg-red-600/10 text-red-600 dark:text-red-400 animate-pulse rounded-lg text-[9px] font-black uppercase tracking-widest border border-red-500/20 w-fit">
+                                                        LATE (Past Curfew)
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </td>
+                                        <td className="px-8 py-6">
+                                            <p className="text-sm font-medium text-slate-600 dark:text-white/70 max-w-xs truncate transition-colors font-medium">{log.destination || '—'}</p>
                                         </td>
                                     </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 

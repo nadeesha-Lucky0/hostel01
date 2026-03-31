@@ -11,7 +11,7 @@ import {
   HiOutlineTrash
 } from 'react-icons/hi2';
 
-const API = 'http://localhost:5000/api';
+const API = '/api';
 
 const statusConfig = {
   open: { label: 'Open', color: 'bg-red-100 text-red-700', dot: 'bg-red-500' },
@@ -88,15 +88,15 @@ export default function Complaints() {
   };
 
   return (
-    <div className="p-4 sm:p-10 space-y-10 w-full animate-fade-in transition-colors" style={{ fontFamily: "'Inter', sans-serif" }}>
+    <div className="p-6 md:p-8 max-w-6xl mx-auto" style={{ fontFamily: "'Inter', sans-serif" }}>
       {/* Header */}
-      <div className="page-header mb-8 flex items-center gap-4">
-        <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-200 dark:shadow-none transition-transform hover:scale-105">
-          <HiOutlineChatBubbleLeftRight className="text-2xl" />
+      <div className="mb-8 flex items-center gap-3">
+        <div className="w-10 h-10 rounded-2xl bg-indigo-600 flex items-center justify-center text-white">
+          <HiOutlineChatBubbleLeftRight className="text-xl" />
         </div>
         <div>
-          <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Hostel <span className="text-indigo-500 italic">Complaints</span></h2>
-          <p className="text-slate-500 dark:text-slate-400 font-medium text-sm mt-1">Manage and respond to student grievances and issues</p>
+          <h1 className="text-2xl font-black text-slate-900 dark:text-white">Student Complaints</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Manage and respond to student complaints</p>
         </div>
       </div>
 

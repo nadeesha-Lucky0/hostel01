@@ -4,12 +4,6 @@ import toast from 'react-hot-toast'
 import { HiPlus, HiChevronDown, HiChevronUp, HiTrash } from 'react-icons/hi2'
 import ConfirmModal from '../components/ConfirmModal'
 
-// Format room number as M1/F1 based on wing
-const fmtRoom = (wing, roomnumber) => {
-    const prefix = wing === 'female' ? 'F' : 'M';
-    return `${prefix}${roomnumber}`;
-};
-
 export default function RoomManagement() {
     const [wing, setWing] = useState('male')
     const [floors, setFloors] = useState([])
@@ -18,6 +12,8 @@ export default function RoomManagement() {
     const [loading, setLoading] = useState(true)
     const [editingRoom, setEditingRoom] = useState(null)
     const [editForm, setEditForm] = useState({ roomnumber: '', type: 'double' })
+    const [addingRoom, setAddingRoom] = useState(null)
+    const [newRoom, setNewRoom] = useState({ roomnumber: '', type: 'double' })
     const [confirmModal, setConfirmModal] = useState({ isOpen: false, data: null })
     const [isAddFloorModalOpen, setIsAddFloorModalOpen] = useState(false)
     const [selectedFloors, setSelectedFloors] = useState([])
@@ -99,7 +95,7 @@ export default function RoomManagement() {
     const handleToggleRoom = async (room) => {
         try {
             await api.toggleRoom(room._id)
-            toast.success(`Room ${fmtRoom(room.wing, room.roomnumber)} ${room.isactive ? 'deactivated' : 'activated'}`)
+            toast.success(`Room ${room.roomnumber} ${room.isactive ? 'deactivated' : 'activated'}`)
             loadFloors()
         } catch (err) { toast.error(err.message) }
     }
@@ -124,6 +120,15 @@ export default function RoomManagement() {
         } catch (err) { toast.error(err.message) }
     }
 
+    const handleAddRoom = async (floorId) => {
+        try {
+            await api.addRoom({ floor: floorId, wing, roomnumber: parseInt(newRoom.roomnumber), type: newRoom.type })
+            toast.success(`Room ${newRoom.roomnumber} added`)
+            setAddingRoom(null)
+            setNewRoom({ roomnumber: '', type: 'double' })
+            loadFloors()
+        } catch (err) { toast.error(err.message) }
+    }
 
     return (
         <div className="animate-fade-in">
@@ -190,13 +195,27 @@ export default function RoomManagement() {
                                     <div className="floor-content animate-fade-in">
                                         <div className="flex items-center justify-between mb-3">
                                             <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Rooms on Floor {floor.floorNumber}</span>
+                                            <button className="btn btn-secondary btn-sm" onClick={() => setAddingRoom(floor._id)}>
+                                                <HiPlus /> Add Room
+                                            </button>
                                         </div>
 
+                                        {addingRoom === floor._id && (
+                                            <div className="flex gap-3 items-center p-4 bg-white dark:bg-slate-700/30 rounded-xl border border-slate-200 dark:border-slate-600/30 mb-4">
+                                                <input className="form-input" type="number" placeholder="Room Number" value={newRoom.roomnumber} onChange={e => setNewRoom({ ...newRoom, roomnumber: e.target.value })} />
+                                                <select className="form-select" value={newRoom.type} onChange={e => setNewRoom({ ...newRoom, type: e.target.value })}>
+                                                    <option value="double">Double</option>
+                                                    <option value="single">Single</option>
+                                                </select>
+                                                <button className="btn btn-success btn-sm" onClick={() => handleAddRoom(floor._id)}>Add</button>
+                                                <button className="btn btn-ghost btn-sm" onClick={() => setAddingRoom(null)}>Cancel</button>
+                                            </div>
+                                        )}
 
                                         <div className="room-grid">
                                             {rooms.map(room => (
                                                 <div key={room._id} className={`room-chip ${!room.isactive ? 'inactive' : ''}`} onClick={() => handleEditRoom(room)}>
-                                                    <div className="room-num">{room.Roomid || room.roomnumber}</div>
+                                                    <div className="room-num">{room.roomnumber}</div>
                                                     <div className="room-type">{room.type}</div>
                                                     <div className="room-beds">
                                                         {room.beds.map(bed => (
@@ -219,7 +238,7 @@ export default function RoomManagement() {
                 <div className="modal-overlay" onClick={() => setEditingRoom(null)}>
                     <div className="modal" onClick={e => e.stopPropagation()}>
                         <div className="modal-header">
-                            <h3>Edit Room {editingRoom.Roomid || fmtRoom(editingRoom.wing, editingRoom.roomnumber)}</h3>
+                            <h3>Edit Room {editingRoom.roomnumber}</h3>
                             <button className="modal-close" onClick={() => setEditingRoom(null)}>✕</button>
                         </div>
                         <div className="modal-content space-y-4">
@@ -257,6 +276,16 @@ export default function RoomManagement() {
                                             <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Bed {bed.bedId}</span>
                                             <div className="bed-actions">
                                                 <span className={`badge ${!bed.isOccupied ? 'badge-success' : 'badge-danger'}`}>{bed.isOccupied ? 'occupied' : 'available'}</span>
+                                                {bed.isOccupied && (
+                                                    <button className="btn btn-xs btn-ghost text-indigo-500" onClick={() => {
+                                                        const newBeds = [...editForm.beds]; newBeds[idx].isOccupied = false; setEditForm({ ...editForm, beds: newBeds })
+                                                    }}>Set Available</button>
+                                                )}
+                                                {!bed.isOccupied && (
+                                                    <button className="btn btn-xs btn-ghost text-red-500" onClick={() => {
+                                                        const newBeds = [...editForm.beds]; newBeds[idx].isOccupied = true; setEditForm({ ...editForm, beds: newBeds })
+                                                    }}>Mark Occupied</button>
+                                                )}
                                             </div>
                                         </div>
                                     ))}
@@ -291,7 +320,7 @@ export default function RoomManagement() {
                             <p className="text-sm text-slate-500 mb-6">Select floors to add. Floors already in the system are disabled.</p>
 
                             <div className="grid grid-cols-4 gap-4 mb-8">
-                                {[2, 3, 4, 5, 6, 7, 8].map(num => {
+                                {[1, 2, 3, 4, 5, 6, 7, 8].map(num => {
                                     const exists = floors.some(f => f.floorNumber === num)
                                     const isSelected = selectedFloors.includes(num)
 

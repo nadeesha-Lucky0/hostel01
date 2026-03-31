@@ -68,11 +68,6 @@ const complaintSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
-  studentFeedback: {
-    type: String,
-    enum: ['great', 'not-resolved'],
-    default: null
-  },
   createdAt: {
     type: Date,
     default: Date.now

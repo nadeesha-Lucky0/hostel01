@@ -1,5 +1,4 @@
 const User = require('../models/User.js');
-const Clearance = require('../models/clearance.js');
 const { cloudinary } = require('../config/cloudinary.js');
 
 // @desc   Update profile picture
@@ -56,45 +55,4 @@ const deleteProfilePicture = async (req, res) => {
     }
 };
 
-// @desc   Delete my user account
-// @route  DELETE /api/users/profile
-const deleteMyUserAccount = async (req, res) => {
-    try {
-        const { password } = req.body;
-        if (!password) {
-            return res.status(400).json({ success: false, message: 'Password is required' });
-        }
-
-        const user = await User.findById(req.user._id);
-        if (!user) return res.status(404).json({ success: false, message: 'User not found' });
-
-        // Verify password
-        const isMatch = await user.matchPassword(password);
-        if (!isMatch) {
-            return res.status(401).json({ success: false, message: 'Invalid password. Deletion aborted.' });
-        }
-
-        // Check Clearance Status (Must be Approved)
-        const clearance = await Clearance.findOne({ student: user._id });
-        if (!clearance || clearance.status !== 'Approved') {
-            return res.status(403).json({ 
-                success: false, 
-                message: 'Profile deletion is only available after your clearance form is Approved by the hostel management.' 
-            });
-        }
-
-        // Delete profile picture from Cloudinary first
-        if (user.profilePicturePublicId) {
-            await cloudinary.uploader.destroy(user.profilePicturePublicId);
-        }
-
-        // Delete the User document itself (keeping other records for warden to purge as per user rules)
-        await User.findByIdAndDelete(user._id);
-
-        res.json({ success: true, message: 'Your profile has been permanently deleted.' });
-    } catch (err) {
-        res.status(500).json({ success: false, message: err.message });
-    }
-};
-
-module.exports = { updateProfilePicture, deleteProfilePicture, deleteMyUserAccount };
+module.exports = { updateProfilePicture, deleteProfilePicture };

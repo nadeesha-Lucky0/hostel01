@@ -1,5 +1,5 @@
 const express = require("express");
-const { protect, authorize } = require("../middleware/authMiddleware");
+const { authenticate, authorize } = require("../middleware/auth");
 const {
   logScan,
   getStudentQrStatus,
@@ -15,12 +15,12 @@ const router = express.Router();
 // Public scan/status for gate QR flow
 router.get("/status/:studentId", getStudentQrStatus);
 router.post("/scan", logScan);
-router.get("/security-pin", protect, authorize("security"), getSecurityPin);
+router.get("/security-pin", authenticate, authorize("security", "admin"), getSecurityPin);
 
 // Warden/Security views
-router.get("/outside", protect, authorize("warden", "security"), getOutsideStudents);
-router.get("/late", protect, authorize("warden", "security"), getLateStudents);
-router.get("/logs", protect, authorize("warden", "security"), getAllLogs);
-router.get("/my-status", protect, authorize("student"), getMyStatus);
+router.get("/outside", authenticate, authorize("warden", "security", "admin"), getOutsideStudents);
+router.get("/late", authenticate, authorize("warden", "security", "admin"), getLateStudents);
+router.get("/logs", authenticate, authorize("warden", "security", "admin"), getAllLogs);
+router.get("/my-status", authenticate, authorize("student"), getMyStatus);
 
 module.exports = router;

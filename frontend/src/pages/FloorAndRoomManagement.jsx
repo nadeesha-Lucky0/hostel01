@@ -20,10 +20,10 @@ export default function FloorAndRoomManagement({ allocatingStudent, setAllocatin
     }, [location.state, allocatingStudent])
 
     return (
-        <div className="p-4 sm:p-10 space-y-10 w-full animate-fade-in transition-colors">
-            <div className="page-header mb-10">
-                <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Floor & <span className="text-indigo-500 italic">Room</span> Management</h2>
-                <p className="text-slate-500 dark:text-slate-400 font-medium text-sm mt-1">Manage hostel infrastructure and assign beds to students</p>
+        <div className="animate-fade-in p-6">
+            <div className="page-header mb-6">
+                <h2>Floor & Room Management</h2>
+                <p>Manage hostel infrastructure and assign beds to students</p>
             </div>
 
             {/* Custom Tab Navigation that mimics the style used in Profiles.jsx */}

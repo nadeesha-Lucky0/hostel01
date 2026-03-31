@@ -3,8 +3,7 @@ const {
     submitRefundablePayment, 
     submitMonthlyPayment, 
     getStudentPaymentStatus, 
-    getStudentInitialData,
-    updateMonthlyPayment 
+    getStudentInitialData 
 } = require('../controllers/studentPaymentController');
 const paymentController = require('../controllers/paymentController');
 const { protect, wardenOnly } = require('../middleware/authMiddleware');
@@ -22,11 +21,9 @@ router.get('/initial-data', getStudentInitialData);
 router.get('/status', getStudentPaymentStatus);
 router.post('/refundable', upload.single('document'), submitRefundablePayment);
 router.post('/monthly', upload.single('document'), submitMonthlyPayment);
-router.put('/monthly/:submissionId', upload.single('document'), updateMonthlyPayment);
 
 // Warden Routes (Protected + Warden Only)
 router.get('/monthly-submissions', wardenOnly, paymentController.getMonthlySubmissions);
-router.get('/monthly-submissions/export', wardenOnly, paymentController.exportMonthlySubmissions);
 router.patch('/monthly-submissions/:studentId/:submissionId', wardenOnly, paymentController.updateMonthlyStatus);
 
 module.exports = router;

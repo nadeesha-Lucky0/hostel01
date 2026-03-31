@@ -223,10 +223,9 @@ export const api = {
     },
 
     // Applications
-    getApplications: async (params = {}) => {
+    getApplications: async () => {
         const token = sessionStorage.getItem('hostel_token');
-        const p = new URLSearchParams(params);
-        const res = await fetch(`${API_BASE}/applications?${p}`, {
+        const res = await fetch(`${API_BASE}/applications`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         if (!res.ok) {
@@ -248,14 +247,6 @@ export const api = {
         if (!res.ok) throw new Error('Failed to fetch application');
         return res.json();
     },
-
-    getApplicationsExportUrl: (format, params = {}) => {
-        const p = new URLSearchParams(params);
-        p.append('format', format);
-        return `${API_BASE}/applications/export/data?${p}`;
-    },
-
-
 
     updateApplication: async (id, data) => {
         const token = sessionStorage.getItem('hostel_token');
@@ -339,20 +330,13 @@ export const api = {
     },
 
     // Warden - Monthly Payments
-    getMonthlySubmissions: async (params = {}) => {
+    getMonthlySubmissions: async () => {
         const token = sessionStorage.getItem('hostel_token');
-        const p = new URLSearchParams(params);
-        const res = await fetch(`${API_BASE}/student-payments/monthly-submissions?${p}`, {
+        const res = await fetch(`${API_BASE}/student-payments/monthly-submissions`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         if (!res.ok) throw new Error('Failed to fetch monthly submissions');
         return res.json();
-    },
-
-    getMonthlySubmissionsExportUrl: (format, params = {}) => {
-        const p = new URLSearchParams(params);
-        p.append('format', format);
-        return `${API_BASE}/student-payments/monthly-submissions/export?${p}`;
     },
 
     updateMonthlyStatus: async (studentId, submissionId, status) => {
@@ -409,170 +393,6 @@ export const api = {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         if (!res.ok) throw new Error('Failed to delete clearance form');
-        return res.json();
-    },
-
-    deleteClearanceById: async (id) => {
-        const token = sessionStorage.getItem('hostel_token');
-        const res = await fetch(`${API_BASE}/clearance/${id}`, {
-            method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (!res.ok) throw new Error('Failed to purge clearance record');
-        return res.json();
-    },
-
-    deleteApplication: async (id) => {
-        const token = sessionStorage.getItem('hostel_token');
-        const res = await fetch(`${API_BASE}/applications/${id}`, {
-            method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (!res.ok) throw new Error('Failed to delete application record');
-        return res.json();
-    },
-
-    purgeStudentRecord: async (id) => {
-        const token = sessionStorage.getItem('hostel_token');
-        const res = await fetch(`${API_BASE}/leave/purge-student/${id}`, {
-            method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (!res.ok) {
-            const err = await res.json();
-            throw new Error(err.message || 'Failed to purge student records');
-        }
-        return res.json();
-    },
-
-    getLeftStudents: async (params = {}) => {
-        const token = sessionStorage.getItem('hostel_token');
-        const p = new URLSearchParams(params);
-        const res = await fetch(`${API_BASE}/leave/left-students?${p}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (!res.ok) throw new Error('Failed to fetch left students');
-        return res.json();
-    },
-
-    getLeftStudentsExportUrl: (format, params = {}) => {
-        const p = new URLSearchParams(params);
-        p.append('format', format);
-        return `${API_BASE}/leave/left-students/export?${p}`;
-    },
-
-    // Financial Exports
-    getRefundableExportUrl: (format, params = {}) => {
-        const p = new URLSearchParams(params);
-        p.append('format', format);
-        return `${API_BASE}/financial/export/refundable?${p}`;
-    },
-
-    getRefundTransfersExportUrl: (format, params = {}) => {
-        const p = new URLSearchParams(params);
-        p.append('format', format);
-        return `${API_BASE}/financial/export/transfers?${p}`;
-    },
-
-    getFinancialRecordsExportUrl: (format, params = {}) => {
-        const p = new URLSearchParams(params);
-        p.append('format', format);
-        return `${API_BASE}/financial/export/records?${p}`;
-    },
-
-    deleteMyProfile: async (password) => {
-        const token = sessionStorage.getItem('hostel_token');
-        const res = await fetch(`${API_BASE}/users/profile`, {
-            method: 'DELETE',
-            headers: { 
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ password })
-        });
-        if (!res.ok) {
-            const err = await res.json();
-            throw new Error(err.message || 'Failed to delete profile');
-        }
-        return res.json();
-    },
-
-    // Resources
-    getResources: async () => {
-        const res = await fetch(`${API_BASE}/resources`);
-        if (!res.ok) throw new Error('Failed to fetch resources');
-        return res.json();
-    },
-
-    getResourceStudents: async () => {
-        const res = await fetch(`${API_BASE}/resources/students`);
-        if (!res.ok) throw new Error('Failed to fetch students for resource allocation');
-        return res.json();
-    },
-
-    createResource: async (data) => {
-        const res = await fetch(`${API_BASE}/resources`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        });
-        if (!res.ok) {
-            const err = await res.json();
-            throw new Error(err.message || 'Failed to create resource');
-        }
-        return res.json();
-    },
-
-    updateResource: async (id, data) => {
-        const res = await fetch(`${API_BASE}/resources/${id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        });
-        if (!res.ok) {
-            const err = await res.json();
-            throw new Error(err.message || 'Failed to update resource');
-        }
-        return res.json();
-    },
-
-    deleteResource: async (id) => {
-        const res = await fetch(`${API_BASE}/resources/${id}`, { method: 'DELETE' });
-        if (!res.ok) {
-            const err = await res.json();
-            throw new Error(err.message || 'Failed to delete resource');
-        }
-        return res.json();
-    },
-
-    allocateResource: async (data) => {
-        const res = await fetch(`${API_BASE}/resources/allocate`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        });
-        if (!res.ok) {
-            const err = await res.json();
-            throw new Error(err.message || 'Failed to allocate resource');
-        }
-        return res.json();
-    },
-
-    getResourceAllocations: async () => {
-        const res = await fetch(`${API_BASE}/resources/allocations`);
-        if (!res.ok) throw new Error('Failed to fetch resource allocations');
-        return res.json();
-    },
-
-    returnResource: async (id) => {
-        const res = await fetch(`${API_BASE}/resources/return/${id}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
-        });
-        if (!res.ok) {
-            const err = await res.json();
-            throw new Error(err.message || 'Failed to return resource');
-        }
         return res.json();
     }
 };

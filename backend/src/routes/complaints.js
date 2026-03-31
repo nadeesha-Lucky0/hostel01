@@ -13,8 +13,7 @@ const {
   updateStatus,
   sendToDean,
   deleteComplaint,
-  getUnreadCounts,
-  submitFeedback
+  getUnreadCounts
 } = require('../controllers/complaintController.js');
 
 const router = express.Router();
@@ -33,7 +32,6 @@ const { upload } = require('../config/cloudinary.js');
 router.post('/', protect, upload.single('image'), createComplaint);
 router.get('/mine', protect, getMyComplaints);
 router.post('/:id/message-student', protect, upload.single('file'), addMessage);   // student sends message
-router.patch('/:id/feedback', protect, submitFeedback);                           // student submits feedback
 router.delete('/:id', protect, deleteComplaint);                                  // student deletes their own complaint
 
 // ── Warden/Public routes ────────────────────────────────────────────

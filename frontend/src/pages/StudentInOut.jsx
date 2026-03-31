@@ -1,109 +1,140 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { HiOutlineArrowLeft, HiOutlineArrowLeftOnRectangle, HiOutlineArrowRightOnRectangle, HiOutlineExclamationCircle, HiOutlineIdentification, HiOutlineMapPin, HiOutlineShieldCheck } from 'react-icons/hi2';
+import { 
+    HiOutlineArrowLeft, 
+    HiOutlineShieldCheck, 
+    HiOutlineMapPin, 
+    HiOutlineHome, 
+    HiOutlineChatBubbleBottomCenterText,
+    HiOutlineIdentification,
+    HiOutlineClock,
+    HiOutlineArrowRightOnRectangle,
+    HiOutlineExclamationCircle
+} from 'react-icons/hi2';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
-import { fetchMyQrStatus, submitQrScan } from '../services/qr';
-
-const PIN_REGEX = /^\d{4}$/;
 
 const StudentInOut = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
     const [isAllocated, setIsAllocated] = useState(false);
-    const [status, setStatus] = useState('');
-    const [destination, setDestination] = useState('');
-    const [goingHome, setGoingHome] = useState(false);
-    const [securityPin, setSecurityPin] = useState('');
     const [submitting, setSubmitting] = useState(false);
+    const [status, setStatus] = useState(null); // Current status (INSIDE/OUTSIDE)
+
+    const [formData, setFormData] = useState({
+        studentId: user?.studentId || '',
+        action: 'exit',
+        destination: '',
+        goingHome: false,
+        securityPin: ''
+    });
 
     useEffect(() => {
-        const loadState = async () => {
+        const checkAllocation = async () => {
+            setLoading(true);
             try {
                 const token = user?.token || sessionStorage.getItem('hostel_token');
-                const allocRes = await fetch('/api/allocations/me', {
-                    headers: { Authorization: `Bearer ${token}` }
+                const res = await fetch('/api/allocations/me', {
+                    headers: { 'Authorization': `Bearer ${token}` }
                 });
-                const allocData = await allocRes.json();
-                if (!allocData.success) {
+                const data = await res.json();
+                if (data.success) {
+                    setIsAllocated(true);
+                    fetchStatus(); // Only fetch status if allocated
+                } else {
                     setIsAllocated(false);
-                    setLoading(false);
-                    return;
                 }
-
-                setIsAllocated(true);
-                const qrData = await fetchMyQrStatus(token);
-                setStatus(qrData.status || '');
             } catch (err) {
-                console.error('QR student page error:', err);
+                console.error('Error checking allocation:', err);
                 setIsAllocated(false);
             } finally {
                 setLoading(false);
             }
         };
 
-        loadState();
+        checkAllocation();
     }, [user?.token]);
 
-    const refreshStatus = async () => {
-        const token = user?.token || sessionStorage.getItem('hostel_token');
-        const qrData = await fetchMyQrStatus(token);
-        setStatus(qrData.status || '');
+    const fetchStatus = async () => {
+        try {
+            const token = user?.token || sessionStorage.getItem('hostel_token');
+            const res = await fetch('/api/qr/my-status', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
+            if (data.success) {
+                setStatus(data.status);
+                // Default action to opposite of current status
+                setFormData(prev => ({ 
+                    ...prev, 
+                    action: data.status === 'INSIDE' ? 'exit' : 'entry' 
+                }));
+            }
+        } catch (err) {
+            console.error('Error fetching status:', err);
+        }
     };
 
-    const handleExitSubmit = async (e) => {
+    const handleChange = (e) => {
+        const { name, value, type, checked } = e.target;
+        setFormData(prev => ({ 
+            ...prev, 
+            [name]: type === 'checkbox' ? checked : value 
+        }));
+    };
+
+    const validateForm = () => {
+        const studentIdRegex = /^(IT|BM)\d{8}$/i;
+        if (!studentIdRegex.test(formData.studentId)) {
+            toast.error('Invalid Student ID format (e.g. IT24102141)');
+            return false;
+        }
+
+        if (formData.action === 'exit' && !formData.destination.trim()) {
+            toast.error('Please enter a note/destination for going out');
+            return false;
+        }
+
+        if (!formData.securityPin || formData.securityPin.length !== 4) {
+            toast.error('Please enter the 4-digit Security PIN');
+            return false;
+        }
+
+        return true;
+    };
+
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!destination.trim()) {
-            toast.error('Destination is required');
-            return;
-        }
-        if (!PIN_REGEX.test(securityPin)) {
-            toast.error('Enter a valid 4-digit security PIN');
-            return;
-        }
+        if (!validateForm()) return;
 
         setSubmitting(true);
         try {
-            await submitQrScan({
-                studentId: user?.studentId,
-                action: 'EXIT',
-                destination: destination.trim(),
-                goingHome,
-                securityPin
-            }, user?.token || sessionStorage.getItem('hostel_token'));
-            toast.success('Exit scan recorded successfully.');
-            setDestination('');
-            setGoingHome(false);
-            setSecurityPin('');
-            await refreshStatus();
-            navigate('/student');
-        } catch (err) {
-            toast.error(err.message || 'Could not submit exit scan');
-        } finally {
-            setSubmitting(false);
-        }
-    };
+            const token = user?.token || sessionStorage.getItem('hostel_token');
+            const res = await fetch('/api/qr/scan', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}` 
+                },
+                body: JSON.stringify({
+                    studentId: formData.studentId,
+                    action: formData.action,
+                    destination: formData.action === 'exit' ? formData.destination : 'Entry',
+                    goingHome: formData.action === 'exit' ? formData.goingHome : false,
+                    securityPin: formData.securityPin
+                })
+            });
 
-    const handleEntrySubmit = async () => {
-        if (!PIN_REGEX.test(securityPin)) {
-            toast.error('Enter a valid 4-digit security PIN');
-            return;
-        }
-
-        setSubmitting(true);
-        try {
-            await submitQrScan({
-                studentId: user?.studentId,
-                action: 'ENTRY',
-                securityPin
-            }, user?.token || sessionStorage.getItem('hostel_token'));
-            toast.success('Arrival recorded successfully.');
-            setSecurityPin('');
-            await refreshStatus();
-            navigate('/student');
+            const data = await res.json();
+            if (res.ok) {
+                toast.success(`Successfully logged ${formData.action === 'exit' ? 'Exit' : 'Entry'}!`);
+                navigate('/student');
+            } else {
+                toast.error(data.message || 'Verification failed');
+            }
         } catch (err) {
-            toast.error(err.message || 'Could not mark arrival');
+            toast.error('Network error. Please try again.');
         } finally {
             setSubmitting(false);
         }
@@ -121,18 +152,33 @@ const StudentInOut = () => {
         return (
             <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-4 sm:p-8 flex items-center justify-center">
                 <div className="w-full max-w-lg space-y-8 animate-fade-in text-center">
-                    <button onClick={() => navigate('/student')} className="flex items-center gap-2 text-slate-500 hover:text-indigo-600 transition-colors font-bold text-sm mx-auto">
+                    <button 
+                        onClick={() => navigate('/student')}
+                        className="flex items-center gap-2 text-slate-500 hover:text-indigo-600 transition-colors font-bold text-sm mx-auto"
+                    >
                         <HiOutlineArrowLeft /> Back to Dashboard
                     </button>
 
-                    <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-12 shadow-2xl border border-slate-100 dark:border-slate-800">
-                        <div className="w-20 h-20 bg-rose-50 dark:bg-rose-900/20 rounded-[2rem] flex items-center justify-center text-4xl mb-6 mx-auto shadow-inner">
-                            <HiOutlineExclamationCircle className="text-rose-500" />
+                    <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-12 shadow-2xl border border-slate-100 dark:border-slate-800 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/10 blur-[50px] -mr-16 -mt-16"></div>
+                        
+                        <div className="relative z-10 space-y-6">
+                            <div className="w-20 h-20 bg-rose-50 dark:bg-rose-900/20 rounded-[2rem] flex items-center justify-center text-4xl mb-6 mx-auto shadow-inner">
+                                <HiOutlineExclamationCircle className="text-rose-500" />
+                            </div>
+                            <h2 className="text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tight">Access Restricted</h2>
+                            <p className="text-slate-400 dark:text-slate-500 text-sm font-medium leading-relaxed">
+                                You cannot log attendance because you don't have an <span className="text-indigo-500 font-bold">active room allocation</span>.
+                            </p>
+                            <div className="pt-4">
+                                <button 
+                                    onClick={() => navigate('/student')}
+                                    className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg active:scale-95"
+                                >
+                                    Return to Portal
+                                </button>
+                            </div>
                         </div>
-                        <h2 className="text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tight">Access Restricted</h2>
-                        <p className="text-slate-400 dark:text-slate-500 text-sm font-medium leading-relaxed mt-4">
-                            You need an active room allocation before using the hostel gate QR flow.
-                        </p>
                     </div>
                 </div>
             </div>
@@ -141,124 +187,187 @@ const StudentInOut = () => {
 
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-4 sm:p-8 flex items-center justify-center">
-            <div className="w-full max-w-2xl space-y-8 animate-fade-in">
-                <button onClick={() => navigate('/student')} className="flex items-center gap-2 text-slate-500 hover:text-indigo-600 transition-colors font-bold text-sm">
+            <div className="w-full max-w-lg space-y-8 animate-fade-in">
+                {/* Back Button */}
+                <button 
+                    onClick={() => navigate('/student')}
+                    className="flex items-center gap-2 text-slate-500 hover:text-indigo-600 transition-colors font-bold text-sm"
+                >
                     <HiOutlineArrowLeft /> Back to Dashboard
                 </button>
 
-                <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 sm:p-10 shadow-2xl border border-slate-100 dark:border-slate-800">
-                    <div className="flex items-center justify-between gap-4 mb-8">
+                <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 sm:p-10 shadow-2xl border border-slate-100 dark:border-slate-800 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 blur-[50px] -mr-16 -mt-16"></div>
+                    
+                    <div className="relative z-10 space-y-8">
+                        {/* Title */}
                         <div>
-                            <div className="flex items-center gap-2 mb-2">
-                                <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
-                                    <HiOutlineShieldCheck className="text-xl" />
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="p-2 bg-indigo-500/20 rounded-lg">
+                                    <HiOutlineShieldCheck className="text-indigo-500 text-xl" />
                                 </div>
-                                <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-[0.2em]">Student Gate Flow</span>
+                                <span className="text-indigo-500 font-bold text-xs uppercase tracking-[0.2em]">Gate Authorization</span>
                             </div>
-                            <h1 className="text-3xl font-black text-slate-900 dark:text-white">Student In &amp; Out</h1>
-                            <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-2">Use the same QR gate flow here with your current hostel status.</p>
+                            <h1 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">
+                                Log <span className="text-indigo-500">In & Out</span>
+                            </h1>
+                            <p className="text-slate-400 font-medium text-sm mt-2">
+                                Synchronize your status with the gate security system.
+                            </p>
                         </div>
-                        <span className={`badge ${status === 'INSIDE' ? 'badge-success' : 'badge-warning'}`}>{status || 'UNKNOWN'}</span>
-                    </div>
 
-                    {status === 'INSIDE' ? (
-                        <form onSubmit={handleExitSubmit} className="space-y-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                                        <HiOutlineIdentification className="text-lg" />
-                                        Student ID
-                                    </label>
-                                    <input value={user?.studentId || ''} readOnly className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl px-5 py-4 font-bold text-slate-700 dark:text-slate-200" />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                                        <HiOutlineShieldCheck className="text-lg" />
-                                        Security PIN
-                                    </label>
-                                    <input
-                                        type="text"
-                                        inputMode="numeric"
-                                        maxLength={4}
-                                        value={securityPin}
-                                        onChange={(e) => setSecurityPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                                        placeholder="Enter 4-digit PIN"
-                                        className="w-full bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/30 rounded-2xl px-5 py-4 font-black text-center tracking-[0.35em] text-indigo-700 dark:text-indigo-300 outline-none focus:border-indigo-500"
-                                    />
-                                </div>
+                        {/* Status Badge */}
+                        {status && (
+                            <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-2xl border ${
+                                status === 'INSIDE' 
+                                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600' 
+                                : 'bg-amber-500/10 border-amber-500/20 text-amber-600'
+                            }`}>
+                                <div className={`w-2 h-2 rounded-full animate-pulse ${status === 'INSIDE' ? 'bg-emerald-500' : 'bg-amber-500'}`}></div>
+                                <span className="text-xs font-black uppercase tracking-wider">Current Status: {status}</span>
                             </div>
+                        )}
 
+                        {/* Form */}
+                        <form onSubmit={handleSubmit} className="space-y-6">
+                            {/* Student ID */}
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                                    <HiOutlineMapPin className="text-lg" />
-                                    Destination
+                                    <HiOutlineIdentification className="text-lg" /> Student ID (IT/BM)
                                 </label>
-                                <input
-                                    type="text"
-                                    value={destination}
-                                    onChange={(e) => setDestination(e.target.value)}
-                                    placeholder="Where are you going?"
-                                    className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl px-5 py-4 font-bold text-slate-700 dark:text-slate-200 outline-none focus:border-indigo-500"
+                                <input 
+                                    type="text" 
+                                    name="studentId"
+                                    value={formData.studentId}
+                                    onChange={handleChange}
+                                    placeholder="e.g. IT24102141"
+                                    className="w-full bg-slate-50 dark:bg-slate-800/50 border-2 border-slate-100 dark:border-slate-800 rounded-2xl px-5 py-4 font-bold text-slate-700 dark:text-slate-200 outline-none focus:border-indigo-500/30 transition-all uppercase"
                                 />
                             </div>
 
-                            <label className="flex items-center gap-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-                                <input type="checkbox" checked={goingHome} onChange={(e) => setGoingHome(e.target.checked)} className="w-5 h-5 accent-indigo-500" />
-                                <div>
-                                    <p className="text-xs font-black text-slate-700 dark:text-slate-200 uppercase tracking-wider">Going Home</p>
-                                    <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500">Skip automatic late checks for this exit</p>
-                                </div>
-                            </label>
-
-                            <button type="submit" disabled={submitting} className="btn btn-primary btn-md w-full">
-                                {submitting ? 'Submitting...' : (
-                                    <>
-                                        <HiOutlineArrowRightOnRectangle />
-                                        Submit Exit Scan
-                                    </>
-                                )}
-                            </button>
-                        </form>
-                    ) : null}
-
-                    {status === 'OUTSIDE' ? (
-                        <div className="space-y-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                                        <HiOutlineIdentification className="text-lg" />
-                                        Student ID
+                            {/* Action Radios */}
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-3">
+                                    <HiOutlineMapPin className="text-lg" /> Action
+                                </label>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <label className={`
+                                        cursor-pointer rounded-2xl p-4 border-2 transition-all flex flex-col items-center gap-2
+                                        ${formData.action === 'entry' 
+                                            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600' 
+                                            : 'bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800 text-slate-400 hover:border-slate-200'}
+                                    `}>
+                                        <input 
+                                            type="radio" 
+                                            name="action" 
+                                            value="entry" 
+                                            checked={formData.action === 'entry'}
+                                            onChange={handleChange}
+                                            className="hidden" 
+                                        />
+                                        <HiOutlineHome className="text-2xl" />
+                                        <span className="font-black text-sm uppercase">Entering</span>
                                     </label>
-                                    <input value={user?.studentId || ''} readOnly className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl px-5 py-4 font-bold text-slate-700 dark:text-slate-200" />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                                        <HiOutlineShieldCheck className="text-lg" />
-                                        Security PIN
+
+                                    <label className={`
+                                        cursor-pointer rounded-2xl p-4 border-2 transition-all flex flex-col items-center gap-2
+                                        ${formData.action === 'exit' 
+                                            ? 'bg-amber-500/10 border-amber-500/30 text-amber-600' 
+                                            : 'bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800 text-slate-400 hover:border-slate-200'}
+                                    `}>
+                                        <input 
+                                            type="radio" 
+                                            name="action" 
+                                            value="exit" 
+                                            checked={formData.action === 'exit'}
+                                            onChange={handleChange}
+                                            className="hidden" 
+                                        />
+                                        <HiOutlineArrowRightOnRectangle className="text-2xl" />
+                                        <span className="font-black text-sm uppercase">Exiting</span>
                                     </label>
-                                    <input
-                                        type="text"
-                                        inputMode="numeric"
-                                        maxLength={4}
-                                        value={securityPin}
-                                        onChange={(e) => setSecurityPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                                        placeholder="Enter 4-digit PIN"
-                                        className="w-full bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/30 rounded-2xl px-5 py-4 font-black text-center tracking-[0.35em] text-indigo-700 dark:text-indigo-300 outline-none focus:border-indigo-500"
-                                    />
                                 </div>
                             </div>
 
-                            <button type="button" onClick={handleEntrySubmit} disabled={submitting} className="btn btn-primary btn-md w-full">
-                                {submitting ? 'Submitting...' : (
-                                    <>
-                                        <HiOutlineArrowLeftOnRectangle />
-                                        Mark Arrived
-                                    </>
-                                )}
+                            {/* Destination/Note - Only for Exit */}
+                            {formData.action === 'exit' && (
+                                <div className="space-y-4 animate-slide-up">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                            <HiOutlineChatBubbleBottomCenterText className="text-lg" /> Destination / Note
+                                        </label>
+                                        <textarea 
+                                            name="destination"
+                                            value={formData.destination}
+                                            onChange={handleChange}
+                                            placeholder="e.g. Going Home / Library / Dinner"
+                                            className="w-full bg-slate-50 dark:bg-slate-800/50 border-2 border-slate-100 dark:border-slate-800 rounded-2xl px-5 py-4 font-bold text-slate-700 dark:text-slate-200 outline-none focus:border-indigo-500/30 transition-all min-h-[100px]"
+                                        />
+                                    </div>
+
+                                    <label className={`
+                                        flex items-center gap-3 p-4 rounded-2xl border-2 transition-all cursor-pointer group
+                                        ${formData.goingHome 
+                                            ? 'bg-indigo-500/10 border-indigo-500/30 ring-4 ring-indigo-500/5' 
+                                            : 'bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800 hover:border-slate-200'}
+                                    `}>
+                                        <input 
+                                            type="checkbox"
+                                            name="goingHome"
+                                            checked={formData.goingHome}
+                                            onChange={handleChange}
+                                            className="w-5 h-5 rounded-lg border-2 border-slate-300 dark:border-slate-600 checked:bg-indigo-500 transition-all cursor-pointer accent-indigo-500"
+                                        />
+                                        <div className="flex-1">
+                                            <p className={`text-xs font-black uppercase tracking-wider transition-colors ${formData.goingHome ? 'text-indigo-600' : 'text-slate-500'}`}>
+                                                Going Home (Overnight)
+                                            </p>
+                                            <p className="text-[9px] font-bold text-slate-400">Skip automatic curfew late checks for tonight</p>
+                                        </div>
+                                    </label>
+                                </div>
+                            )}
+
+                            {/* Security PIN */}
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                    <HiOutlineClock className="text-lg" /> Gate Verification PIN
+                                </label>
+                                <input 
+                                    type="text" 
+                                    name="securityPin"
+                                    value={formData.securityPin}
+                                    onChange={handleChange}
+                                    maxLength={4}
+                                    placeholder="••••"
+                                    className="w-full bg-indigo-500/5 dark:bg-indigo-500/10 border-2 border-indigo-500/20 rounded-2xl px-5 py-5 font-black text-3xl tracking-[0.5em] text-center text-indigo-600 dark:text-indigo-400 outline-none focus:border-indigo-500/40 transition-all"
+                                />
+                                <p className="text-[9px] font-bold text-slate-400 text-center uppercase tracking-wider">
+                                    Ask the Security Officer for the current 1-minute PIN
+                                </p>
+                            </div>
+
+                            {/* Submit */}
+                            <button 
+                                type="submit"
+                                disabled={submitting}
+                                className={`
+                                    w-full py-5 rounded-2xl font-black text-sm uppercase tracking-widest transition-all shadow-xl
+                                    ${submitting 
+                                        ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
+                                        : 'bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-indigo-500/25 active:scale-95'}
+                                `}
+                            >
+                                {submitting ? 'Verifying PIN...' : 'Submit Log'}
                             </button>
-                        </div>
-                    ) : null}
+                        </form>
+                    </div>
                 </div>
+
+                {/* Footer Link */}
+                <p className="text-center text-slate-400 font-bold text-[11px] uppercase tracking-widest">
+                    Unauthorized access is monitored • Secure Transaction
+                </p>
             </div>
         </div>
     );

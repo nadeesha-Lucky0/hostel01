@@ -107,7 +107,7 @@ exports.updateNotice = async (req, res) => {
       updateData.attachmentType = newFirst ? newFirst.type : 'none';
     }
 
-    const updatedNotice = await Notice.findByIdAndUpdate(req.params.id, updateData, { returnDocument: 'after', runValidators: true })
+    const updatedNotice = await Notice.findByIdAndUpdate(req.params.id, updateData, { new: true, runValidators: true })
       .populate('createdBy', 'name role');
     res.json({ success: true, data: updatedNotice });
   } catch (err) {

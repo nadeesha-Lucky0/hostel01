@@ -44,7 +44,7 @@ exports.createFloor = async (req, res) => {
         // Rooms 1-15 (Double)
         for (let i = 1; i <= 15; i++) {
             roomsToCreate.push({
-                Roomid: `L${floor.floorNumber}-${wingInitial}${i}`,
+                Roomid: `RM${String(nextRoomNum + roomsToCreate.length).padStart(3, '0')}`,
                 floorid: floor.floorID,
                 floor: floor._id,
                 floorNumber: floor.floorNumber,
@@ -58,7 +58,7 @@ exports.createFloor = async (req, res) => {
         // Rooms 16-19 (Single)
         for (let i = 16; i <= 19; i++) {
             roomsToCreate.push({
-                Roomid: `L${floor.floorNumber}-${wingInitial}${i}`,
+                Roomid: `RM${String(nextRoomNum + roomsToCreate.length).padStart(3, '0')}`,
                 floorid: floor.floorID,
                 floor: floor._id,
                 floorNumber: floor.floorNumber,
@@ -183,7 +183,7 @@ exports.createFloorsBulk = async (req, res) => {
             const roomsToCreate = [];
             for (let i = 1; i <= 15; i++) {
                 roomsToCreate.push({
-                    Roomid: `L${floor.floorNumber}-${wingInitial}${i}`,
+                    Roomid: `RM${String(nextRoomNum + roomsToCreate.length).padStart(3, '0')}`,
                     floorid: floor.floorID,
                     floor: floor._id,
                     floorNumber: floor.floorNumber,
@@ -196,7 +196,7 @@ exports.createFloorsBulk = async (req, res) => {
             }
             for (let i = 16; i <= 19; i++) {
                 roomsToCreate.push({
-                    Roomid: `L${floor.floorNumber}-${wingInitial}${i}`,
+                    Roomid: `RM${String(nextRoomNum + roomsToCreate.length).padStart(3, '0')}`,
                     floorid: floor.floorID,
                     floor: floor._id,
                     floorNumber: floor.floorNumber,
@@ -216,48 +216,6 @@ exports.createFloorsBulk = async (req, res) => {
         if (err.code === 11000) {
             return res.status(400).json({ error: 'One or more floors already exist for this wing' });
         }
-        res.status(500).json({ error: err.message });
-    }
-};
-
-// Migration function to update existing room IDs
-exports.migrateRoomIDs = async (req, res) => {
-    try {
-        console.log("Starting Room ID Migration...");
-        const rooms = await Room.find({});
-        console.log(`Found ${rooms.length} rooms to check.`);
-        let updatedCount = 0;
-
-        for (const room of rooms) {
-            const wingInitial = room.wing.charAt(0).toUpperCase();
-            const newRoomid = `L${room.floorNumber}-${wingInitial}${room.roomnumber}`;
-            
-            if (room.Roomid !== newRoomid) {
-                console.log(`Updating Room ${room._id}: ${room.Roomid} -> ${newRoomid}`);
-                room.Roomid = newRoomid;
-                await room.save();
-                updatedCount++;
-            }
-        }
-
-        console.log(`Migration complete. Updated ${updatedCount} rooms.`);
-        res.json({ message: `Migration complete. Updated ${updatedCount} rooms.`, totalChecked: rooms.length });
-    } catch (err) {
-        console.error("Migration Error:", err);
-        res.status(500).json({ error: err.message });
-    }
-};
-
-// DEBUG: Check database counts
-exports.debugCounts = async (req, res) => {
-    try {
-        const floorCount = await Floor.countDocuments();
-        const roomCount = await Room.countDocuments();
-        const sampleRoom = await Room.findOne().lean();
-        const dbName = require('mongoose').connection.name;
-        const dbHost = require('mongoose').connection.host;
-        res.json({ floorCount, roomCount, dbName, dbHost, sampleRoom });
-    } catch (err) {
         res.status(500).json({ error: err.message });
     }
 };

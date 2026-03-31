@@ -2,19 +2,16 @@ import { useState, useEffect } from 'react'
 import { api } from '../services/api'
 import toast from 'react-hot-toast'
 import { 
+    HiOutlineEye, 
     HiOutlineCheckCircle, 
     HiOutlineXCircle, 
-    HiOutlineNoSymbol,
     HiOutlineDocumentText, 
     HiXMark,
     HiOutlineArrowTopRightOnSquare,
     HiOutlineClipboardDocumentCheck,
     HiOutlineCurrencyDollar,
     HiOutlineReceiptPercent,
-    HiOutlineKey,
-    HiTrash,
-    HiOutlineDocumentArrowDown,
-    HiOutlineTableCells
+    HiOutlineKey
 } from 'react-icons/hi2'
 import { useAuth } from '../context/AuthContext'
 
@@ -31,10 +28,9 @@ export default function Profiles() {
     const [loadingApps, setLoadingApps] = useState(true)
     const [loadingClearances, setLoadingClearances] = useState(true)
     const [activeTab, setActiveTab] = useState('warden')
+    const [viewingApp, setViewingApp] = useState(null)
     const [viewingClearance, setViewingClearance] = useState(null)
     const [viewingHistory, setViewingHistory] = useState(null)
-    const [viewingApp, setViewingApp] = useState(null)
-    const [loadingAppDetails, setLoadingAppDetails] = useState(false)
     
     // Filters for Warden Profile Activation tab
     const [profileSearch, setProfileSearch] = useState('')
@@ -79,18 +75,6 @@ export default function Profiles() {
         }
     }
 
-    const loadApplicationDetail = async (id) => {
-        try {
-            setLoadingAppDetails(true)
-            const data = await api.getApplication(id)
-            setViewingApp(data)
-        } catch (err) {
-            toast.error('Failed to load profile details')
-        } finally {
-            setLoadingAppDetails(false)
-        }
-    }
-
     const handleStatusUpdate = async (id, status) => {
         try {
             const updatedApp = await api.updateApplication(id, { applicationStatus: status })
@@ -103,7 +87,6 @@ export default function Profiles() {
             if (viewingApp?._id === id) {
                 setViewingApp(updatedApp)
             }
-
         } catch (err) {
             console.error('handleStatusUpdate error:', err)
             toast.error(err.message || 'Failed to update status')
@@ -123,63 +106,43 @@ export default function Profiles() {
 
     // Filter logic for Profile Activation (Warden View)
     const filteredApplications = applications.filter(app => {
-        const searchLower = profileSearch.toLowerCase().trim();
+        const searchLower = profileSearch.toLowerCase();
         const matchesSearch =
             (app.studentName && app.studentName.toLowerCase().includes(searchLower)) ||
             (app.studentRollNumber && app.studentRollNumber.toLowerCase().includes(searchLower)) ||
-            (app.studentEmail && app.studentEmail.toLowerCase().includes(searchLower)) ||
             (profileSearch === '');
 
         const activeStatuses = ['Activated', 'Room Allocated']
         const pendingStatuses = ['Pending', 'Payment Approved']
-        const deactivatedStatuses = ['Deactivated', 'Rejected']
 
-        const matchesStatus = (profileStatusFilter === 'all') || 
-            (profileStatusFilter === 'active' && activeStatuses.includes(app.applicationStatus)) ||
-            (profileStatusFilter === 'pending' && pendingStatuses.includes(app.applicationStatus)) ||
-            (profileStatusFilter === 'deactivated' && deactivatedStatuses.includes(app.applicationStatus));
+        let matchesStatus = true;
+        if (profileStatusFilter === 'active') {
+            matchesStatus = activeStatuses.includes(app.applicationStatus);
+        } else if (profileStatusFilter === 'pending') {
+            matchesStatus = pendingStatuses.includes(app.applicationStatus);
+        }
 
         return matchesSearch && matchesStatus;
     });
 
-    // Helper for secure file downloads with Bearer token
-    const downloadSecureFile = async (url, filename) => {
-        try {
-            const token = sessionStorage.getItem('hostel_token');
-            const res = await fetch(url, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (!res.ok) throw new Error('Failed to download file');
-            const blob = await res.blob();
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = filename;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        } catch (err) {
-            toast.error(err.message || 'Download failed');
-        }
-    };
-
     const getStatusBadge = (status) => {
         switch (status) {
-            case 'Pending': return <span className="badge badge-warning">Payment Waiting</span>
-            case 'Activated':
-            case 'Room Allocated': return <span className="badge badge-success">Activated</span>
+            case 'Pending': return <span className="badge badge-warning">Pending</span>
+            case 'Activated': return <span className="badge badge-success">Activated</span>
             case 'Deactivated': return <span className="badge badge-danger">Deactivated</span>
-            case 'Payment Approved': return <span className="badge badge-info">Ready to Activate</span>
+            case 'Payment Approved': return <span className="badge badge-info">Payment Approved</span>
+            case 'Room Allocated': return <span className="badge badge-success">Allocated</span>
             case 'Rejected': return <span className="badge badge-danger">Rejected</span>
             default: return <span className="badge badge-neutral">{status}</span>
         }
     }
 
     return (
-        <div className="p-4 sm:p-10 space-y-10 w-full animate-fade-in transition-colors">
-            <div className="page-header mb-10">
+        <div className="animate-fade-in space-y-8">
+            <div className="page-header">
                 <div>
-                    <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Student <span className="text-indigo-500 italic">Profiles</span></h2>
-                    <p className="text-slate-500 dark:text-slate-400 font-medium text-sm mt-1">Manage student identities and application workflows</p>
+                    <h2 className="text-3xl font-black text-slate-900 dark:text-white leading-tight">Profiles & Applications</h2>
+                    <p className="text-slate-500 dark:text-slate-400 font-bold text-sm mt-1">Manage student identities and application workflows</p>
                 </div>
             </div>
 
@@ -197,15 +160,6 @@ export default function Profiles() {
                         {tab === 'Payments' ? 'Monthly Payments' : tab === 'Clearance' ? 'Clearance' : 'Profile activation'}
                     </button>
                 ))}
-                <button
-                    onClick={() => setActiveTab('left')}
-                    className={`px-8 py-2.5 rounded-xl text-sm font-black transition-all border-none cursor-pointer ${activeTab === 'left'
-                        ? 'bg-[#FAB95B] text-[#1A3263] shadow-lg'
-                        : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
-                        }`}
-                >
-                    Left Students
-                </button>
             </div>
 
             {activeTab === 'payments' && (
@@ -213,85 +167,57 @@ export default function Profiles() {
                     submissions={submissions}
                     handlePaymentStatus={handlePaymentStatus}
                     setViewingHistory={setViewingHistory}
-                    downloadSecureFile={downloadSecureFile}
                 />
             )}
 
-                    {activeTab === 'clearance' && (
-                        <ClearanceViewWarden 
-                            clearances={clearances}
-                            submissions={submissions}
-                            loading={loadingClearances}
-                            onUpdate={() => {
-                                loadClearances(false)
-                                loadSubmissions(false)
-                            }}
-                            setViewingClearance={setViewingClearance}
-                        />
-                    )}
-
-                    {activeTab === 'left' && <LeftViewWarden downloadSecureFile={downloadSecureFile} />}
+            {activeTab === 'clearance' && (
+                <ClearanceViewWarden 
+                    clearances={clearances}
+                    submissions={submissions}
+                    loading={loadingClearances}
+                    onUpdate={() => {
+                        loadClearances(false)
+                        loadSubmissions(false)
+                    }}
+                    setViewingClearance={setViewingClearance}
+                />
+            )}
 
             {/* Records Table (Warden Tab) - Now a card view with filters */}
             {activeTab === 'warden' && (
                 <div className="space-y-6">
-                    {/* Filter & Export Bar */}
-                    <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
-                        {/* Search on Left */}
-                        <div className="relative w-full md:w-96 group">
-                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                <svg className="w-5 h-5 text-slate-400 group-focus-within:text-[#FAB95B] transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    {/* Filter Bar */}
+                    <div className="flex flex-col sm:flex-row gap-4 mb-6 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700/50">
+                        <div className="flex-1 relative">
+                            <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                                <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                                 </svg>
                             </div>
                             <input 
                                 type="text" 
-                                className="form-input pl-11 w-full h-12 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700/50 rounded-2xl focus:ring-2 focus:ring-[#FAB95B]/20 transition-all font-bold text-sm" 
-                                placeholder="Search by name, email or ID..." 
+                                className="form-input pl-9 w-full" 
+                                placeholder="Search by name or IT number..." 
                                 value={profileSearch}
                                 onChange={(e) => setProfileSearch(e.target.value)}
                             />
                         </div>
-
-                        {/* Status & Export on Right */}
-                        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-                            <div className="flex gap-1 p-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm h-11">
-                                {[
-                                    { key: 'all', label: 'All Statuses' },
-                                    { key: 'pending', label: 'Pending' },
-                                    { key: 'active', label: 'Activated' },
-                                    { key: 'deactivated', label: 'Deactivated' }
-                                ].map(f => (
-                                    <button
-                                        key={f.key}
-                                        onClick={() => setProfileStatusFilter(f.key)}
-                                        className={`px-4 py-2 rounded-lg text-[10px] font-black transition-all border-none cursor-pointer uppercase tracking-wider ${profileStatusFilter === f.key
-                                            ? 'bg-[#FAB95B] text-[#1A3263] shadow-sm'
-                                            : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
-                                    >
-                                        {f.label}
-                                    </button>
-                                ))}
-                            </div>
-                            
-                            <div className="h-8 w-px bg-slate-200 dark:bg-slate-700 mx-1 hidden md:block" />
-                            
-                            <div className="flex items-center gap-2">
-                                <button 
-                                    onClick={() => downloadSecureFile(api.getApplicationsExportUrl('csv', { search: profileSearch, status: profileStatusFilter }), `Applications_${new Date().toLocaleDateString()}.csv`)}
-                                    className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 rounded-xl font-bold text-[10px] uppercase tracking-wider hover:bg-slate-50 dark:hover:bg-slate-800 transition-all border-none cursor-pointer"
-                                    title="Export to CSV"
+                        <div className="flex gap-1 p-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm h-fit self-center">
+                            {[
+                                { key: 'all', label: 'All Statuses' },
+                                { key: 'active', label: 'Active' },
+                                { key: 'pending', label: 'Pending' }
+                            ].map(f => (
+                                <button
+                                    key={f.key}
+                                    onClick={() => setProfileStatusFilter(f.key)}
+                                    className={`px-4 py-2 rounded-lg text-xs font-black transition-all border-none cursor-pointer ${profileStatusFilter === f.key
+                                        ? 'bg-[#FAB95B] text-[#1A3263] shadow-sm'
+                                        : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
                                 >
-                                    <HiOutlineTableCells className="text-lg" /> CSV
+                                    {f.label}
                                 </button>
-                                <button 
-                                    onClick={() => downloadSecureFile(api.getApplicationsExportUrl('pdf', { search: profileSearch, status: profileStatusFilter }), `Applications_${new Date().toLocaleDateString()}.pdf`)}
-                                    className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 rounded-xl font-bold text-[10px] uppercase tracking-wider hover:bg-slate-50 dark:hover:bg-slate-800 transition-all border-none cursor-pointer"
-                                    title="Export to PDF"
-                                >
-                                    <HiOutlineDocumentArrowDown className="text-lg" /> PDF
-                                </button>
-                            </div>
+                            ))}
                         </div>
                     </div>
 
@@ -301,10 +227,10 @@ export default function Profiles() {
                                 <thead>
                                     <tr>
                                         <th>Student</th>
-                                        <th className="text-center">Wing</th>
-                                        <th className="text-center">Roll Number</th>
-                                        <th className="text-center">Status</th>
-                                        <th className="text-center">Action</th>
+                                        <th>Wing</th>
+                                        <th>Roll Number</th>
+                                        <th>Status</th>
+                                        <th className="text-right">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
@@ -320,7 +246,7 @@ export default function Profiles() {
                                         ))
                                     ) : filteredApplications.length === 0 ? (
                                         <tr>
-                                            <td colSpan="6" className="text-center py-16 text-slate-400 italic">No applications found matching your criteria</td>
+                                            <td colSpan="5" className="text-center py-16 text-slate-400 italic">No applications found matching your criteria</td>
                                         </tr>
                                     ) : filteredApplications.map(app => (
                                         <tr key={app._id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors">
@@ -328,29 +254,28 @@ export default function Profiles() {
                                                 <div className="font-bold text-slate-800 dark:text-white">{app.studentName}</div>
                                                 <div className="text-[11px] text-slate-400 dark:text-slate-300">{app.studentEmail}</div>
                                             </td>
-                                            <td className="text-center">
+                                            <td>
                                                 <span className={`badge ${app.studentWing === 'male' ? 'badge-info' : 'badge-neutral'}`}>
                                                     {app.studentWing === 'male' ? 'Male' : 'Female'}
                                                 </span>
                                             </td>
-                                            <td className="text-center"><span className="badge badge-neutral">{app.studentRollNumber}</span></td>
-                                            <td className="text-center">
+                                            <td><span className="badge badge-neutral">{app.studentRollNumber}</span></td>
+                                            <td>
                                                 <span className={`badge ${
                                                     app.applicationStatus === 'Activated' || app.applicationStatus === 'Room Allocated' ? 'badge-success'
                                                     : app.applicationStatus === 'Rejected' || app.applicationStatus === 'Deactivated' ? 'badge-danger'
+                                                    : app.applicationStatus === 'Payment Approved' ? 'badge-info'
                                                     : 'badge-warning'
                                                 }`}>
-                                                    {app.applicationStatus === 'Activated' || app.applicationStatus === 'Room Allocated' ? 'Activated' 
-                                                     : app.applicationStatus === 'Rejected' || app.applicationStatus === 'Deactivated' ? 'Deactivated'
-                                                     : 'Pending'}
+                                                    {app.applicationStatus || 'Pending'}
                                                 </span>
                                             </td>
-                                            <td className="text-center">
+                                            <td className="text-right">
                                                 <button
-                                                    onClick={() => loadApplicationDetail(app._id)}
-                                                    className="px-6 py-2 bg-[#FAB95B] text-[#1A3263] rounded-xl font-black text-xs border-none cursor-pointer hover:scale-105 active:scale-95 transition-all shadow-lg shadow-amber-500/10 flex items-center gap-2 mx-auto"
+                                                    className="flex items-center gap-1.5 px-5 py-2 bg-[#FAB95B] text-[#1A3263] rounded-xl font-bold text-xs border-none cursor-pointer hover:bg-[#e5a84d] transition-colors ml-auto"
+                                                    onClick={() => setViewingApp(app)}
                                                 >
-                                                   View Profile
+                                                    <HiOutlineEye /> View Profile
                                                 </button>
                                             </td>
                                         </tr>
@@ -364,13 +289,119 @@ export default function Profiles() {
 
             {/* Profile Detail Modal */}
             {viewingApp && (
-                <ProfileDetailModal 
-                    app={viewingApp} 
-                    onClose={() => setViewingApp(null)} 
-                    onAction={handleStatusUpdate}
-                    loading={loadingAppDetails}
-                    downloadSecureFile={downloadSecureFile}
-                />
+                <div className="modal-overlay" onClick={() => setViewingApp(null)}>
+                    <div className="modal !max-w-3xl dark:bg-slate-900 border dark:border-slate-800" onClick={e => e.stopPropagation()}>
+                        <div className="modal-header border-b dark:border-slate-800">
+                            <div>
+                                <h3 className="text-xl font-black text-slate-900 dark:text-white">Detailed Student Profile</h3>
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Application ID: {viewingApp._id}</p>
+                            </div>
+                            <button className="w-10 h-10 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center transition-colors border-none bg-transparent cursor-pointer text-slate-400 dark:text-slate-500" onClick={() => setViewingApp(null)}>
+                                <HiXMark className="text-2xl" />
+                            </button>
+                        </div>
+
+                        <div className="modal-body py-8 space-y-10 max-h-[75vh] overflow-y-auto">
+                            {/* Header Section */}
+                            <div className="flex flex-col items-center text-center space-y-3">
+                                <div className="w-24 h-24 rounded-[2rem] bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 flex items-center justify-center text-4xl font-black shadow-inner">
+                                    {viewingApp.studentName?.[0]}
+                                </div>
+                                <div>
+                                    <h4 className="text-2xl font-black text-slate-900 dark:text-white">{viewingApp.studentName}</h4>
+                                    <p className="text-sm font-bold text-slate-500 italic">{viewingApp.studentEmail}</p>
+                                </div>
+                                {getStatusBadge(viewingApp.applicationStatus)}
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 px-4">
+                                <div>
+                                    <h5 className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-4 border-l-4 border-indigo-500 pl-3">Academic Info</h5>
+                                    <div className="space-y-4">
+                                        {[
+                                            ['Roll Number', viewingApp.studentRollNumber],
+                                            ['NIC Number', viewingApp.nic],
+                                            ['Course / Degree', viewingApp.studentDegree],
+                                            ['Academic Year', viewingApp.studentYear],
+                                            ['Registration No', viewingApp.registrationNumber],
+                                            ['Faculty', viewingApp.faculty],
+                                        ].map(([l, v]) => (
+                                            <div key={l} className="flex justify-between items-center py-2 border-b border-slate-50 dark:border-slate-800/50">
+                                                <span className="text-xs font-bold text-slate-400">{l}</span>
+                                                <span className="text-sm font-black text-slate-700 dark:text-slate-300">{v || '—'}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <h5 className="text-[10px] font-black text-[#FAB95B] uppercase tracking-widest mb-4 border-l-4 border-[#FAB95B] pl-3">Hostel Preference</h5>
+                                    <div className="space-y-4">
+                                        {[
+                                            ['Requested Wing', viewingApp.studentWing === 'male' ? 'Male Wing' : 'Female Wing'],
+                                            ['Room Preference', `${viewingApp.roomType} Room`],
+                                            ['Duration', viewingApp.durationOfStay],
+                                            ['Hostel Choice', viewingApp.preferredHostel],
+                                            ['Current Allocation', viewingApp.assignedRoom || 'Not Allocated Yet'],
+                                        ].map(([l, v]) => (
+                                            <div key={l} className="flex justify-between items-center py-2 border-b border-slate-50 dark:border-slate-800/50">
+                                                <span className="text-xs font-bold text-slate-400">{l}</span>
+                                                <span className="text-sm font-black text-slate-700 dark:text-slate-300">{v || '—'}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="md:col-span-2">
+                                    <h5 className="text-[10px] font-black text-rose-500 uppercase tracking-widest mb-4 border-l-4 border-rose-500 pl-3">Guardian & Emergency</h5>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-12 gap-y-4">
+                                        {[
+                                            ['Guardian Name', viewingApp.guardianName],
+                                            ['Guardian Phone', viewingApp.guardianContactNumber],
+                                            ['Emergency Contact', viewingApp.emergencyContactName],
+                                            ['Emergency Phone', viewingApp.emergencyContactPhone],
+
+                                        ].map(([l, v]) => (
+                                            <div key={l} className="flex justify-between items-center py-2 border-b border-slate-50 dark:border-slate-800/50">
+                                                <span className="text-xs font-bold text-slate-400">{l}</span>
+                                                <span className="text-sm font-black text-slate-700 dark:text-slate-300">{v || '—'}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="modal-footer bg-slate-50 dark:bg-slate-900/50 flex-wrap justify-between gap-4 border-t dark:border-slate-800">
+                            <div className="flex gap-2">
+                                <button
+                                    className="btn btn-sm btn-success !rounded-xl !h-10 px-4"
+                                    onClick={() => handleStatusUpdate(viewingApp._id, 'Activated')}
+                                >
+                                    <HiOutlineCheckCircle /> Activate
+                                </button>
+                                <button
+                                    className="btn btn-sm btn-warning !rounded-xl !h-10 px-4"
+                                    onClick={() => handleStatusUpdate(viewingApp._id, 'Deactivated')}
+                                >
+                                    <HiOutlineXCircle /> Deactivate
+                                </button>
+                                <button
+                                    className="btn btn-sm btn-danger !rounded-xl !h-10 px-4"
+                                    onClick={() => handleStatusUpdate(viewingApp._id, 'Rejected')}
+                                >
+                                    <HiOutlineXCircle /> Reject
+                                </button>
+                            </div>
+                            <button
+                                className="btn btn-ghost h-10 px-6 rounded-xl font-black text-slate-500 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors"
+                                onClick={() => setViewingApp(null)}
+                            >
+                                Close Details
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
 
             {/* Clearance Detail/Management Modal */}
@@ -398,7 +429,7 @@ export default function Profiles() {
     )
 }
 
-function PaymentViewWarden({ submissions, handlePaymentStatus, setViewingHistory, downloadSecureFile }) {
+function PaymentViewWarden({ submissions, handlePaymentStatus, setViewingHistory }) {
     const [subTab, setSubTab] = useState('pending')
     const [searchTerm, setSearchTerm] = useState('')
 
@@ -430,58 +461,34 @@ function PaymentViewWarden({ submissions, handlePaymentStatus, setViewingHistory
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-2">
-                {/* Search on Left */}
-                <div className="relative w-full md:w-96 group">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                        <svg className="w-5 h-5 text-slate-400 group-focus-within:text-[#FAB95B] transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
+                <div className="flex gap-2 p-1 bg-slate-100 dark:bg-slate-800/50 rounded-2xl w-fit">
+                    <button
+                        onClick={() => setSubTab('pending')}
+                        className={`px-6 py-2 rounded-xl text-xs font-black transition-all border-none cursor-pointer ${subTab === 'pending' ? 'bg-[#FAB95B] text-[#1A3263] shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
+                    >
+                        Pending Submissions ({pending.length})
+                    </button>
+                    <button
+                        onClick={() => setSubTab('approved')}
+                        className={`px-6 py-2 rounded-xl text-xs font-black transition-all border-none cursor-pointer ${subTab === 'approved' ? 'bg-[#FAB95B] text-[#1A3263] shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
+                    >
+                        Approved History ({filteredApproved.length})
+                    </button>
+                </div>
+                <div className="relative w-full md:w-64">
+                    <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                        <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
                     </div>
                     <input 
                         type="text" 
-                        className="form-input pl-11 w-full h-12 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700/50 rounded-2xl focus:ring-2 focus:ring-[#FAB95B]/20 transition-all font-bold text-sm" 
-                        placeholder="Search student by name, email or ID..." 
+                        className="form-input pl-9 w-full h-10" 
+                        placeholder="Search student by name or IT number..." 
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
-                </div>
-
-                {/* Tabs & Export on Right */}
-                <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-                    <div className="flex gap-1 p-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm h-11">
-                        <button
-                            onClick={() => setSubTab('pending')}
-                            className={`px-6 py-2 rounded-lg text-[10px] font-black transition-all border-none cursor-pointer uppercase tracking-wider ${subTab === 'pending' ? 'bg-[#FAB95B] text-[#1A3263] shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
-                        >
-                            Pending ({pending.length})
-                        </button>
-                        <button
-                            onClick={() => setSubTab('approved')}
-                            className={`px-6 py-2 rounded-lg text-[10px] font-black transition-all border-none cursor-pointer uppercase tracking-wider ${subTab === 'approved' ? 'bg-[#FAB95B] text-[#1A3263] shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
-                        >
-                            Approved ({filteredApproved.length})
-                        </button>
-                    </div>
-
-                    <div className="h-8 w-px bg-slate-200 dark:bg-slate-700 mx-1 hidden md:block" />
-
-                    <div className="flex items-center gap-2">
-                        <button 
-                            onClick={() => downloadSecureFile(api.getMonthlySubmissionsExportUrl('csv', { search: searchTerm, status: subTab === 'pending' ? 'Pending' : 'Accepted' }), `MonthlyPayments_${new Date().toLocaleDateString()}.csv`)}
-                            className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 rounded-xl font-bold text-[10px] uppercase tracking-wider hover:bg-slate-50 dark:hover:bg-slate-800 transition-all border-none cursor-pointer"
-                            title="Export to CSV"
-                        >
-                            <HiOutlineTableCells className="text-lg" /> CSV
-                        </button>
-                        <button 
-                            onClick={() => downloadSecureFile(api.getMonthlySubmissionsExportUrl('pdf', { search: searchTerm, status: subTab === 'pending' ? 'Pending' : 'Accepted' }), `MonthlyPayments_${new Date().toLocaleDateString()}.pdf`)}
-                            className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 rounded-xl font-bold text-[10px] uppercase tracking-wider hover:bg-slate-50 dark:hover:bg-slate-800 transition-all border-none cursor-pointer"
-                            title="Export to PDF"
-                        >
-                            <HiOutlineDocumentArrowDown className="text-lg" /> PDF
-                        </button>
-                    </div>
                 </div>
             </div>
 
@@ -493,11 +500,11 @@ function PaymentViewWarden({ submissions, handlePaymentStatus, setViewingHistory
                                 <thead>
                                     <tr>
                                         <th>Student</th>
-                                        <th className="text-center">Wing</th>
-                                        <th className="text-center">Roll Number</th>
-                                        <th className="text-center">Months</th>
-                                        <th className="text-center">Amount</th>
-                                        <th className="text-center">Actions</th>
+                                        <th>Wing</th>
+                                        <th>Roll Number</th>
+                                        <th>Months</th>
+                                        <th>Amount</th>
+                                        <th className="text-right">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
@@ -509,14 +516,14 @@ function PaymentViewWarden({ submissions, handlePaymentStatus, setViewingHistory
                                                 <div className="font-black text-slate-800 dark:text-slate-200">{sub.studentName}</div>
                                                 <div className="text-[11px] text-slate-400 dark:text-slate-300 italic">{sub.email}</div>
                                             </td>
-                                            <td className="text-center">
+                                            <td>
                                                 <span className={`badge ${sub.wing === 'male' ? 'badge-info' : 'badge-neutral'}`}>
                                                     {sub.wing === 'male' ? 'Male' : 'Female'}
                                                 </span>
                                             </td>
-                                            <td className="text-center"><span className="badge badge-neutral">{sub.rollNumber}</span></td>
-                                            <td className="text-center">
-                                                <div className="flex flex-wrap gap-1 justify-center">
+                                            <td><span className="badge badge-neutral">{sub.rollNumber}</span></td>
+                                            <td>
+                                                <div className="flex flex-wrap gap-1">
                                                     {sub.months?.map(m => (
                                                         <span key={m} className="px-2 py-0.5 bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-300 rounded-lg text-[10px] font-black uppercase tracking-tighter">
                                                             {m.substring(0, 3)}
@@ -524,9 +531,9 @@ function PaymentViewWarden({ submissions, handlePaymentStatus, setViewingHistory
                                                     ))}
                                                 </div>
                                             </td>
-                                            <td className="text-center font-black text-slate-700 dark:text-slate-300">LKR {sub.amount?.toLocaleString()}</td>
-                                            <td className="text-center">
-                                                <div className="flex items-center justify-center gap-2">
+                                            <td className="font-black text-slate-700 dark:text-slate-300">LKR {sub.amount?.toLocaleString()}</td>
+                                            <td>
+                                                <div className="flex items-center justify-end gap-2">
                                                     <a
                                                         href={sub.documentUrl}
                                                         target="_blank"
@@ -538,7 +545,7 @@ function PaymentViewWarden({ submissions, handlePaymentStatus, setViewingHistory
                                                     </a>
                                                     <button
                                                         onClick={() => handlePaymentStatus(sub.studentId, sub.submissionId, 'Accepted')}
-                                                        className="p-2.5 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:emerald-400 rounded-xl border-none cursor-pointer hover:bg-emerald-500 hover:text-white transition-all shadow-sm"
+                                                        className="p-2.5 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-xl border-none cursor-pointer hover:bg-emerald-500 hover:text-white transition-all shadow-sm"
                                                         title="Approve"
                                                     >
                                                         <HiOutlineCheckCircle className="text-lg" />
@@ -561,9 +568,9 @@ function PaymentViewWarden({ submissions, handlePaymentStatus, setViewingHistory
                                 <thead>
                                     <tr>
                                         <th>Student</th>
-                                        <th className="text-center">Wing</th>
-                                        <th className="text-center">Roll Number</th>
-                                        <th className="text-center">Action</th>
+                                        <th>Wing</th>
+                                        <th>Roll Number</th>
+                                        <th className="text-right">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
@@ -575,16 +582,16 @@ function PaymentViewWarden({ submissions, handlePaymentStatus, setViewingHistory
                                                 <div className="font-black text-slate-800 dark:text-slate-200">{student.studentName}</div>
                                                 <div className="text-[11px] text-slate-400 dark:text-slate-300 italic">{student.email}</div>
                                             </td>
-                                            <td className="text-center">
+                                            <td>
                                                 <span className={`badge ${student.wing === 'male' ? 'badge-info' : 'badge-neutral'}`}>
                                                     {student.wing === 'male' ? 'Male' : 'Female'}
                                                 </span>
                                             </td>
-                                            <td className="text-center"><span className="badge badge-neutral">{student.rollNumber}</span></td>
-                                            <td className="text-center">
+                                            <td><span className="badge badge-neutral">{student.rollNumber}</span></td>
+                                            <td className="text-right">
                                                 <button
                                                     onClick={() => setViewingHistory(student)}
-                                                    className="px-6 py-2 bg-[#FAB95B] text-[#1A3263] rounded-xl font-black text-xs border-none cursor-pointer hover:scale-105 active:scale-95 transition-all shadow-lg shadow-amber-500/10 flex items-center gap-2 mx-auto"
+                                                    className="px-6 py-2 bg-[#FAB95B] text-[#1A3263] rounded-xl font-black text-xs border-none cursor-pointer hover:scale-105 active:scale-95 transition-all shadow-lg shadow-amber-500/10 flex items-center gap-2 ml-auto"
                                                 >
                                                     View History <HiOutlineArrowTopRightOnSquare />
                                                 </button>
@@ -616,27 +623,20 @@ function ClearanceViewWarden({ clearances, loading, setViewingClearance }) {
     return (
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-2">
-                {/* Search on Left */}
-                <div className="relative w-full md:w-96 group">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                        <svg className="w-5 h-5 text-slate-400 group-focus-within:text-[#FAB95B] transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <span className="text-sm font-bold text-slate-500 dark:text-slate-400">Manage student clearance requests</span>
+                <div className="relative w-full md:w-64">
+                    <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                        <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
                     </div>
                     <input 
                         type="text" 
-                        className="form-input pl-11 w-full h-12 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700/50 rounded-2xl focus:ring-2 focus:ring-[#FAB95B]/20 transition-all font-bold text-sm" 
-                        placeholder="Search student by name, email or ID..." 
+                        className="form-input pl-9 w-full h-10" 
+                        placeholder="Search student by name or IT number..." 
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
-                </div>
-
-                {/* Info on Right */}
-                <div className="flex items-center gap-3 w-full md:w-auto">
-                    <div className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700/50">
-                        <span className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">Clearance Requests: {filteredClearances.length}</span>
-                    </div>
                 </div>
             </div>
             <div className="card !p-0 overflow-hidden dark:bg-slate-900 dark:border-slate-800">
@@ -645,11 +645,11 @@ function ClearanceViewWarden({ clearances, loading, setViewingClearance }) {
                         <thead>
                             <tr>
                                 <th>Student</th>
-                                <th className="text-center">Wing</th>
-                                <th className="text-center">Roll Number</th>
-                                <th className="text-center">Room Details</th>
-                                <th className="text-center">Status</th>
-                                <th className="text-center">Action</th>
+                                <th>Wing</th>
+                                <th>Roll Number</th>
+                                <th>Room Details</th>
+                                <th>Status</th>
+                                <th className="text-right">Action</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
@@ -674,16 +674,16 @@ function ClearanceViewWarden({ clearances, loading, setViewingClearance }) {
                                         <div className="font-black text-slate-800 dark:text-slate-200">{cl.studentName}</div>
                                         <div className="text-[11px] text-slate-400 dark:text-slate-300 italic">{cl.studentEmail}</div>
                                     </td>
-                                    <td className="text-center">
+                                    <td>
                                         <span className={`badge ${cl.wing === 'male' ? 'badge-info' : 'badge-neutral'}`}>
                                             {cl.wing === 'male' ? 'Male' : 'Female'}
                                         </span>
                                     </td>
-                                    <td className="text-center"><span className="badge badge-neutral">{cl.studentRollNumber}</span></td>
-                                    <td className="text-center">
-                                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{cl.wing === 'female' ? 'F' : 'M'}{cl.roomNumber} • Bed {cl.bedId}</div>
+                                    <td><span className="badge badge-neutral">{cl.studentRollNumber}</span></td>
+                                    <td>
+                                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Room {cl.roomNumber} • Bed {cl.bedId}</div>
                                     </td>
-                                    <td className="text-center">
+                                    <td>
                                         <span className={`badge ${
                                             cl.status === 'Approved' ? 'badge-success' : 
                                             cl.status === 'Rejected' ? 'badge-danger' : 
@@ -692,10 +692,10 @@ function ClearanceViewWarden({ clearances, loading, setViewingClearance }) {
                                             {cl.status}
                                         </span>
                                     </td>
-                                    <td className="text-center">
+                                    <td className="text-right">
                                         <button
                                             onClick={() => setViewingClearance(cl)}
-                                            className="px-5 py-2 bg-[#FAB95B] text-[#1A3263] rounded-xl font-bold text-xs border-none cursor-pointer hover:bg-[#e5a84d] transition-colors mx-auto"
+                                            className="px-5 py-2 bg-[#FAB95B] text-[#1A3263] rounded-xl font-bold text-xs border-none cursor-pointer hover:bg-[#e5a84d] transition-colors shadow-sm"
                                         >
                                             View & Manage
                                         </button>
@@ -719,23 +719,8 @@ function ClearanceModalWarden({ clearance, submissions, onClose, onUpdate }) {
     const [submitting, setSubmitting] = useState(false)
     const [isEditMode, setIsEditMode] = useState(!clearance.isWardenSubmitted)
 
-    const allMonths = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
-    const currentMonthName = allMonths[new Date().getMonth()]
-    
-    // Filter months based on student joinedAt
-    const months = (() => {
-        if (!clearance.joinedAt) return allMonths;
-        const joinDate = new Date(clearance.joinedAt);
-        const joinYear = joinDate.getFullYear();
-        const joinMonth = joinDate.getMonth();
-        const currentYear = new Date().getFullYear();
-
-        if (currentYear === joinYear) {
-            return allMonths.slice(joinMonth);
-        }
-        return allMonths;
-    })();
-
+    const currentMonthIdx = new Date().getMonth()
+    const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
     const approvedMonths = new Set()
     submissions.forEach(s => s.months?.forEach(m => approvedMonths.add(m)))
 
@@ -822,7 +807,7 @@ function ClearanceModalWarden({ clearance, submissions, onClose, onUpdate }) {
                                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                                     {months.map((m, idx) => {
                                         const isPaid = approvedMonths.has(m)
-                                        const isOngoing = m === currentMonthName
+                                        const isOngoing = idx === currentMonthIdx
                                         const adjustment = monthlyAdjustments.find(a => a.month === m)
                                         return (
                                             <div key={m} className={`relative p-4 rounded-2xl border-2 transition-all ${
@@ -983,6 +968,9 @@ function ClearanceModalWarden({ clearance, submissions, onClose, onUpdate }) {
 }
 
 function HistoryModal({ student, onClose, submissions }) {
+    const currentMonthIdx = new Date().getMonth()
+    const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+
     // Map approved months
     const approvedMonths = new Set()
     submissions.filter(s => s.status === 'Accepted').forEach(s => {
@@ -1002,68 +990,49 @@ function HistoryModal({ student, onClose, submissions }) {
                     </button>
                 </div>
 
-                {/* Filter months base on student joinedAt */}
-                {(() => {
-                    const allMonths = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
-                    const months = (() => {
-                        if (!student.joinedAt) return allMonths;
-                        const joinDate = new Date(student.joinedAt);
-                        const joinYear = joinDate.getFullYear();
-                        const joinMonth = joinDate.getMonth();
-                        const currentYear = new Date().getFullYear();
-
-                        if (currentYear === joinYear) {
-                            return allMonths.slice(joinMonth);
-                        }
-                        return allMonths;
-                    })();
-
-                    return (
-                        <div className="modal-body py-8 px-6 space-y-8">
-                            <div className="flex items-center gap-4 p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl border border-indigo-100 dark:border-indigo-800/30">
-                                <div className="p-3 bg-white dark:bg-slate-800 rounded-xl text-indigo-600 shadow-sm">
-                                    <HiOutlineCurrencyDollar className="text-2xl" />
-                                </div>
-                                <div>
-                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Approved Submissions</div>
-                                    <div className="text-xl font-black text-indigo-900 dark:text-indigo-100">{submissions.filter(s => s.status === 'Accepted').length} Recordings</div>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                                {months.map((m, idx) => {
-                                    const isPaid = approvedMonths.has(m)
-                                    const isOngoing = m === allMonths[new Date().getMonth()] // Simplified check
-                                    return (
-                                        <div
-                                            key={m}
-                                            className={`relative p-4 rounded-2xl border-2 transition-all flex flex-col items-center justify-center gap-2 ${isPaid
-                                                ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800/30 text-emerald-700 dark:text-emerald-400'
-                                                : isOngoing
-                                                    ? 'bg-white dark:bg-slate-800 border-rose-400 text-slate-400 animate-pulse-subtle shadow-lg'
-                                                    : 'bg-slate-50 dark:bg-slate-900/50 border-slate-100 dark:border-slate-800 text-slate-300 dark:text-slate-600'
-                                                }`}
-                                        >
-                                            <HiOutlineCheckCircle className={`text-xl ${isPaid ? 'opacity-100' : 'opacity-20'}`} />
-                                            <span className="text-[10px] font-black uppercase tracking-widest">{m.substring(0, 3)}</span>
-                                            {isOngoing && !isPaid && (
-                                                <div className="absolute -top-2 -right-1 px-1.5 py-0.5 bg-rose-500 text-white text-[8px] font-black rounded-full shadow-lg">
-                                                    ONGOING
-                                                </div>
-                                            )}
-                                        </div>
-                                    )
-                                })}
-                            </div>
-
-                            <div className="pt-4 flex flex-wrap gap-4 text-[10px] font-black uppercase tracking-widest">
-                                <div className="flex items-center gap-2"><div className="w-3 h-3 bg-emerald-500 rounded-full" /> Approved</div>
-                                <div className="flex items-center gap-2"><div className="w-3 h-3 bg-white border-2 border-rose-400 rounded-full" /> Ongoing Month</div>
-                                <div className="flex items-center gap-2"><div className="w-3 h-3 bg-slate-200 rounded-full" /> Unpaid/Pending</div>
-                            </div>
+                <div className="modal-body py-8 px-6 space-y-8">
+                    <div className="flex items-center gap-4 p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl border border-indigo-100 dark:border-indigo-800/30">
+                        <div className="p-3 bg-white dark:bg-slate-800 rounded-xl text-indigo-600 shadow-sm">
+                            <HiOutlineCurrencyDollar className="text-2xl" />
                         </div>
-                    )
-                })()}
+                        <div>
+                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Approved Submissions</div>
+                            <div className="text-xl font-black text-indigo-900 dark:text-indigo-100">{submissions.filter(s => s.status === 'Accepted').length} Recordings</div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                        {months.map((m, idx) => {
+                            const isPaid = approvedMonths.has(m)
+                            const isOngoing = idx === currentMonthIdx
+                            return (
+                                <div
+                                    key={m}
+                                    className={`relative p-4 rounded-2xl border-2 transition-all flex flex-col items-center justify-center gap-2 ${isPaid
+                                        ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800/30 text-emerald-700 dark:text-emerald-400'
+                                        : isOngoing
+                                            ? 'bg-white dark:bg-slate-800 border-rose-400 text-slate-400 animate-pulse-subtle shadow-lg'
+                                            : 'bg-slate-50 dark:bg-slate-900/50 border-slate-100 dark:border-slate-800 text-slate-300 dark:text-slate-600'
+                                        }`}
+                                >
+                                    <HiOutlineCheckCircle className={`text-xl ${isPaid ? 'opacity-100' : 'opacity-20'}`} />
+                                    <span className="text-[10px] font-black uppercase tracking-widest">{m.substring(0, 3)}</span>
+                                    {isOngoing && !isPaid && (
+                                        <div className="absolute -top-2 -right-1 px-1.5 py-0.5 bg-rose-500 text-white text-[8px] font-black rounded-full shadow-lg">
+                                            ONGOING
+                                        </div>
+                                    )}
+                                </div>
+                            )
+                        })}
+                    </div>
+
+                    <div className="pt-4 flex flex-wrap gap-4 text-[10px] font-black uppercase tracking-widest">
+                        <div className="flex items-center gap-2"><div className="w-3 h-3 bg-emerald-500 rounded-full" /> Approved</div>
+                        <div className="flex items-center gap-2"><div className="w-3 h-3 bg-white border-2 border-rose-400 rounded-full" /> Ongoing Month</div>
+                        <div className="flex items-center gap-2"><div className="w-3 h-3 bg-slate-200 rounded-full" /> Unpaid/Pending</div>
+                    </div>
+                </div>
 
                 <div className="modal-footer justify-center bg-slate-50 dark:bg-slate-900/50 border-t dark:border-slate-800">
                     <button className="btn btn-ghost h-12 px-12 rounded-2xl font-black text-slate-500 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800 transition-colors" onClick={onClose}>Close History View</button>
@@ -1071,364 +1040,4 @@ function HistoryModal({ student, onClose, submissions }) {
             </div>
         </div>
     )
-}
-
-function LeftViewWarden({ downloadSecureFile }) {
-    const [leftStudents, setLeftStudents] = useState([])
-    const [loading, setLoading] = useState(true)
-    const [searchTerm, setSearchTerm] = useState('')
-
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            loadLeftStudents()
-        }, 300)
-        return () => clearTimeout(timer)
-    }, [searchTerm])
-
-    const loadLeftStudents = async () => {
-        try {
-            setLoading(true)
-            const data = await api.getLeftStudents({ search: searchTerm })
-            setLeftStudents(data)
-        } catch (err) {
-            console.error('Failed to load left students:', err)
-            toast.error('Failed to fetch historical records')
-        } finally {
-            setLoading(false)
-        }
-    }
-
-    const handleDeleteRecord = async (s) => {
-        const msg = `Are you sure you want to PERMANENTLY purge all hostel records (payments, complaints, allocations) for ${s.name}?\n\nThis will keep the character identity but delete ALL hostel history.`;
-        if (!window.confirm(msg)) return
-        
-        try {
-            setLoading(true)
-            if (s.studentId) {
-                await api.purgeStudentRecord(s.studentId)
-                toast.success('All hostel records purged successfully')
-            } else {
-                if (s.clId) await api.deleteClearanceById(s.clId)
-                if (s.appId || s.id) await api.deleteApplication(s.appId || s.id)
-                toast.success('Records deleted successfully')
-            }
-            loadLeftStudents()
-        } catch (err) {
-            toast.error(err.message)
-        } finally {
-            setLoading(false)
-        }
-    }
-
-    return (
-        <div className="space-y-6 animate-fade-in">
-            <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-2">
-                {/* Search on Left */}
-                <div className="relative w-full md:w-96 group">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                        <svg className="w-5 h-5 text-slate-400 group-focus-within:text-[#FAB95B] transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                    </div>
-                    <input 
-                        type="text" 
-                        className="form-input pl-11 w-full h-12 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700/50 rounded-2xl focus:ring-2 focus:ring-[#FAB95B]/20 transition-all font-bold text-sm" 
-                        placeholder="Search exit records by name, email or ID..." 
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                </div>
-
-                {/* Info & Export on Right */}
-                <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-                    <div className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700/50">
-                        <span className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">Total Exit Records: {leftStudents.length}</span>
-                    </div>
-
-                    <div className="h-8 w-px bg-slate-200 dark:bg-slate-700 mx-1 hidden md:block" />
-
-                    <div className="flex items-center gap-2">
-                        <button 
-                            onClick={() => downloadSecureFile(api.getLeftStudentsExportUrl('csv', { search: searchTerm }), `LeftStudents_${new Date().toLocaleDateString()}.csv`)}
-                            className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 rounded-xl font-bold text-[10px] uppercase tracking-wider hover:bg-slate-50 dark:hover:bg-slate-800 transition-all border-none cursor-pointer"
-                            title="Export to CSV"
-                        >
-                            <HiOutlineTableCells className="text-lg" /> CSV
-                        </button>
-                        <button 
-                            onClick={() => downloadSecureFile(api.getLeftStudentsExportUrl('pdf', { search: searchTerm }), `LeftStudents_${new Date().toLocaleDateString()}.pdf`)}
-                            className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 rounded-xl font-bold text-[10px] uppercase tracking-wider hover:bg-slate-50 dark:hover:bg-slate-800 transition-all border-none cursor-pointer"
-                            title="Export to PDF"
-                        >
-                            <HiOutlineDocumentArrowDown className="text-lg" /> PDF
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <div className="card !p-0 overflow-hidden dark:bg-slate-900 border dark:border-slate-800 shadow-sm">
-                <div className="table-container">
-                    <table className="w-full">
-                        <thead>
-                            <tr className="bg-slate-50 dark:bg-slate-800/50">
-                                <th className="px-8 py-6 text-left text-[11px] font-black text-slate-500 uppercase tracking-widest">Student</th>
-                                <th className="px-8 py-6 text-center text-[11px] font-black text-slate-500 uppercase tracking-widest">Final Status</th>
-                                <th className="px-8 py-6 text-center text-[11px] font-black text-slate-500 uppercase tracking-widest">Exit Source</th>
-                                <th className="px-8 py-6 text-right text-[11px] font-black text-slate-500 uppercase tracking-widest">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
-                            {loading && leftStudents.length === 0 ? (
-                                <tr><td colSpan="4" className="text-center py-10 dark:text-slate-400 font-bold italic">Loading history records...</td></tr>
-                            ) : leftStudents.length === 0 ? (
-                                <tr><td colSpan="4" className="text-center py-20 text-slate-400 italic font-bold">No historical records found</td></tr>
-                            ) : leftStudents.map((s, idx) => (
-                                <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors group">
-                                    <td className="px-8 py-6">
-                                        <div className="font-black text-slate-700 dark:text-slate-200 uppercase text-sm group-hover:text-indigo-600 transition-colors">{s.name}</div>
-                                        <div className="text-[11px] text-slate-400 font-bold italic">{s.roll}</div>
-                                    </td>
-                                    <td className="px-8 py-6 text-center">
-                                        <span className={`badge ${s.status === 'Deactivated' ? 'badge-danger' : 'badge-success'} shadow-none opacity-80 uppercase text-[9px]`}>
-                                            {s.status}
-                                        </span>
-                                    </td>
-                                    <td className="px-8 py-6 text-center">
-                                        <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest leading-none block">{s.type}</span>
-                                        <span className="text-[9px] text-slate-400 font-bold">{new Date(s.leftAt).toLocaleDateString()}</span>
-                                    </td>
-                                    <td className="px-8 py-6 text-right">
-                                        <button 
-                                            onClick={() => handleDeleteRecord(s)}
-                                            className="p-2.5 bg-rose-50 dark:bg-rose-900/10 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all border-none cursor-pointer"
-                                            title="Delete historical record permanently"
-                                        >
-                                            <HiTrash className="text-lg" />
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    )
-}
-
-function ProfileDetailModal({ app, onClose, onAction, loading, downloadSecureFile }) {
-    if (!app && !loading) return null;
-
-    return (
-        <div className="modal-overlay" onClick={onClose} style={{ zIndex: 1000 }}>
-            <div className="modal !max-w-4xl dark:bg-slate-900 border dark:border-slate-800" onClick={e => e.stopPropagation()}>
-                <div className="modal-header border-b dark:border-slate-800">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-[#FAB95B] rounded-2xl flex items-center justify-center text-[#1A3263] text-xl font-black shadow-lg shadow-amber-500/20">
-                            {app?.studentName?.charAt(0)}
-                        </div>
-                        <div>
-                            <h3 className="text-xl font-black text-slate-900 dark:text-white">Profile Details</h3>
-                            <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none mt-1">
-                                {app?.studentName} • {app?.studentRollNumber}
-                            </p>
-                        </div>
-                    </div>
-                    <button className="w-10 h-10 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center border-none bg-transparent cursor-pointer text-slate-400 dark:text-slate-500 transition-colors" onClick={onClose}>
-                        <HiXMark className="text-2xl" />
-                    </button>
-                </div>
-
-                <div className="modal-body p-8 overflow-y-auto max-h-[70vh] custom-scrollbar">
-                    {loading ? (
-                        <div className="flex flex-col items-center justify-center py-20 gap-4">
-                            <div className="w-12 h-12 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
-                            <p className="text-sm font-bold text-slate-400 animate-pulse">Fetching details...</p>
-                        </div>
-                    ) : (
-                        <div className="space-y-8 animate-fade-in">
-                            {/* Status Section */}
-                            <div className="flex flex-wrap items-center justify-between gap-4 p-5 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-100 dark:border-slate-700/50">
-                                <div className="space-y-1">
-                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Application Status</div>
-                                    <div className="flex items-center gap-3">
-                                        <div className={`px-4 py-1.5 rounded-full text-xs font-black tracking-wide ${
-                                            app.applicationStatus === 'Activated' || app.applicationStatus === 'Room Allocated' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' :
-                                            app.applicationStatus === 'Deactivated' || app.applicationStatus === 'Rejected' ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/20' :
-                                            'bg-amber-500 text-white shadow-lg shadow-amber-500/20'
-                                        }`}>
-                                            {app.applicationStatus}
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    {(app.applicationStatus !== 'Activated' && app.applicationStatus !== 'Room Allocated') ? (
-                                        <button 
-                                            onClick={() => {
-                                                onAction(app._id, 'Activated')
-                                                onClose()
-                                            }}
-                                            className="px-6 py-2.5 bg-emerald-500 text-white rounded-xl font-black text-xs border-none cursor-pointer hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-2"
-                                        >
-                                            <HiOutlineCheckCircle className="text-lg" /> Activate Profile
-                                        </button>
-                                    ) : (
-                                        <button 
-                                            onClick={() => {
-                                                onAction(app._id, 'Deactivated')
-                                                onClose()
-                                            }}
-                                            className="px-6 py-2.5 bg-amber-500 text-white rounded-xl font-black text-xs border-none cursor-pointer hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/20 flex items-center gap-2"
-                                        >
-                                            <HiOutlineXCircle className="text-lg" /> Deactivate Profile
-                                        </button>
-                                    )}
-                                    {app.applicationStatus !== 'Rejected' && (
-                                        <button 
-                                            onClick={() => {
-                                                onAction(app._id, 'Rejected')
-                                                onClose()
-                                            }}
-                                            className="px-6 py-2.5 bg-rose-500 text-white rounded-xl font-black text-xs border-none cursor-pointer hover:bg-rose-600 transition-all shadow-lg shadow-rose-500/20 flex items-center gap-2"
-                                        >
-                                            <HiOutlineNoSymbol className="text-lg" /> Reject
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                {/* Academic Info */}
-                                <div className="space-y-4">
-                                    <h4 className="text-[11px] font-black text-indigo-500 uppercase tracking-[0.2em] flex items-center gap-2">
-                                        <span className="w-6 h-px bg-indigo-500/30" /> Academic Details
-                                    </h4>
-                                    <div className="space-y-4 px-2">
-                                        <DetailItem label="Full Name" value={app.studentName} />
-                                        <DetailItem label="Registration #" value={app.registrationNumber} />
-                                        <DetailItem label="Roll Number" value={app.studentRollNumber} />
-                                        <DetailItem label="Email Address" value={app.studentEmail} isEmail />
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <DetailItem label="Wing / Gender" value={`${app.studentWing || app.gender} Wing`} />
-                                            <DetailItem label="Faculty" value={app.faculty} />
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <DetailItem label="Course" value={app.studentDegree} />
-                                            <DetailItem label="Year" value={app.studentYear} />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Personal Info */}
-                                <div className="space-y-4">
-                                    <h4 className="text-[11px] font-black text-indigo-500 uppercase tracking-[0.2em] flex items-center gap-2">
-                                        <span className="w-6 h-px bg-indigo-500/30" /> Personal Details
-                                    </h4>
-                                    <div className="space-y-4 px-2">
-                                        <DetailItem label="NIC / National ID" value={app.nic} />
-                                        <DetailItem label="Contact Number" value={app.contactNumber} />
-                                        <DetailItem label="Emergency Contact" value={`${app.emergencyContactName} (${app.emergencyContactPhone})`} />
-                                        <DetailItem label="Guardian Name" value={app.guardianName} />
-                                        <DetailItem label="Guardian Contact" value={app.guardianContactNumber} />
-                                        <DetailItem label="Permanent Address" value={app.permanentAddress} />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
-                                {/* Medical Info */}
-                                <div className="space-y-4">
-                                    <h4 className="text-[11px] font-black text-indigo-500 uppercase tracking-[0.2em] flex items-center gap-2">
-                                        <span className="w-6 h-px bg-indigo-500/30" /> Health Information
-                                    </h4>
-                                    <div className="p-5 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-100 dark:border-slate-700/50 space-y-3">
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Medical Condition</span>
-                                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${app.hasMedicalCondition ? 'bg-amber-100 text-amber-600' : 'bg-emerald-100 text-emerald-600'}`}>
-                                                {app.hasMedicalCondition ? 'Yes' : 'No'}
-                                            </span>
-                                        </div>
-                                        {app.hasMedicalCondition && (
-                                            <>
-                                                <div className="space-y-1">
-                                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Details</span>
-                                                    <p className="text-xs font-bold text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-100 dark:border-slate-700/50">
-                                                        {app.medicalConditionDetails || 'No details provided'}
-                                                    </p>
-                                                </div>
-                                                {app.medicalReportUrl && (
-                                                    <button 
-                                                        onClick={() => downloadSecureFile(app.medicalReportUrl, `Medical_Report_${app.studentRollNumber}.pdf`)}
-                                                        className="w-full py-2.5 bg-indigo-50 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-400 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-600 hover:text-white transition-all border-none cursor-pointer flex items-center justify-center gap-2"
-                                                    >
-                                                        <HiOutlineDocumentArrowDown className="text-lg" /> Download Medical Report
-                                                    </button>
-                                                )}
-                                            </>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Hostel Preference */}
-                                <div className="space-y-4">
-                                    <h4 className="text-[11px] font-black text-indigo-500 uppercase tracking-[0.2em] flex items-center gap-2">
-                                        <span className="w-6 h-px bg-indigo-500/30" /> Hostel Preference
-                                    </h4>
-                                    <div className="p-5 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-100 dark:border-slate-700/50 space-y-4">
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <DetailItem label="Room Type" value={`${app.roomType || 'Single'} Room`} />
-                                            <DetailItem label="Stay Duration" value={`${app.durationOfStay || 12} Months`} />
-                                        </div>
-                                        {app.paymentSlipUrl && (
-                                            <div className="space-y-2">
-                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Initial Payment Slip</span>
-                                                <div className="relative group rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-600 shadow-sm">
-                                                    <img src={app.paymentSlipUrl} alt="Payment Slip" className="w-full h-32 object-cover transition-transform duration-500 group-hover:scale-110" />
-                                                    <div className="absolute inset-0 bg-indigo-900/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
-                                                        <a href={app.paymentSlipUrl} target="_blank" rel="noreferrer" className="p-2 bg-white text-indigo-600 rounded-full hover:scale-110 transition-transform">
-                                                            <HiOutlineDocumentText size={20} />
-                                                        </a>
-                                                        <button 
-                                                            onClick={() => downloadSecureFile(app.paymentSlipUrl, `Payment_Slip_${app.studentRollNumber}.jpg`)}
-                                                            className="p-2 bg-white text-indigo-600 rounded-full hover:scale-110 transition-transform border-none cursor-pointer"
-                                                        >
-                                                            <HiOutlineDocumentArrowDown size={20} />
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-                <div className="modal-footer bg-slate-50 dark:bg-slate-900 px-8 py-5 border-t dark:border-slate-800">
-                    <button className="px-6 py-2.5 bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-xl font-bold text-xs border-none cursor-pointer hover:bg-slate-300 dark:hover:bg-slate-700 transition-all shadow-sm" onClick={onClose}>
-                        Close Detail View
-                    </button>
-                    {app?.assignedRoom ? (
-                        <div className="flex items-center gap-2 text-indigo-500 font-bold text-sm">
-                            <HiOutlineKey className="text-xl" /> Assigned: Room {app.assignedRoom}
-                        </div>
-                    ) : (
-                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Room not assigned yet</div>
-                    )}
-                </div>
-            </div>
-        </div>
-    );
-}
-
-function DetailItem({ label, value, isEmail }) {
-    return (
-        <div className="space-y-0.5">
-            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">{label}</div>
-            <div className={`text-sm font-black tracking-tight ${isEmail ? 'text-indigo-500 italic' : 'text-slate-700 dark:text-slate-200'} truncate`}>
-                {value || 'Not specified'}
-            </div>
-        </div>
-    );
 }

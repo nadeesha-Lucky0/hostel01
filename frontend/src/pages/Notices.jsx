@@ -317,17 +317,17 @@ const Notices = () => {
   };
 
   return (
-    <div className="p-4 sm:p-10 space-y-10 w-full animate-fade-in transition-colors lg:max-px-0">
+    <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
       {/* Header */}
-      <div className="page-header mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-200 dark:shadow-none transition-transform hover:scale-105">
-            <HiOutlineMegaphone className="text-2xl" />
-          </div>
-          <div>
-            <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Hostel <span className="text-indigo-500 italic">Notices</span></h2>
-            <p className="text-slate-500 dark:text-slate-400 font-medium text-sm mt-1">Manage and publish announcements for all students</p>
-          </div>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-200 dark:shadow-none">
+              <HiOutlineMegaphone />
+            </div>
+            Official Notices
+          </h1>
+          <p className="text-slate-500 dark:text-slate-400 font-medium mt-1">Manage public announcements for the hostel portal</p>
         </div>
         <button
           onClick={openCreate}

@@ -3,12 +3,6 @@ import { api } from '../services/api'
 import toast from 'react-hot-toast'
 import { HiOutlineXMark } from 'react-icons/hi2'
 
-// Format room number as M1/F1 based on wing
-const fmtRoom = (wing, roomnumber) => {
-    const prefix = wing === 'female' ? 'F' : 'M';
-    return `${prefix}${roomnumber}`;
-};
-
 export default function RoomAllocation({ allocatingStudent, setAllocatingStudent }) {
     const [wing, setWing] = useState(allocatingStudent?.wing || 'male')
     const [floors, setFloors] = useState([])
@@ -72,7 +66,7 @@ export default function RoomAllocation({ allocatingStudent, setAllocatingStudent
         if (!confirmBed || !allocatingStudent) return
         try {
             await api.allocate({ studentId: allocatingStudent._id, roomId: confirmBed.room._id, bedId: confirmBed.bedId })
-            toast.success(`Allocated ${allocatingStudent.name} to Room ${fmtRoom(wing, confirmBed.room.roomnumber)}, Bed ${confirmBed.bedId}`)
+            toast.success(`Allocated ${allocatingStudent.name} to Room ${confirmBed.room.roomnumber}, Bed ${confirmBed.bedId}`)
             setAllocatingStudent(null); setConfirmBed(null); loadRooms()
         } catch (err) { toast.error(err.message) }
     }
@@ -87,7 +81,7 @@ export default function RoomAllocation({ allocatingStudent, setAllocatingStudent
                         <div>
                             <div className="student-name">Allocating: {allocatingStudent.name}</div>
                             <div className="flex items-center gap-2 mt-1">
-                                <span className="student-meta">{allocatingStudent.wing} wing</span>
+                                <span className="student-meta">{allocatingStudent.degree} · Year {allocatingStudent.year} · {allocatingStudent.wing} wing</span>
                                 <span className={`badge ${allocatingStudent.paymentStatus === 'success' ? 'badge-success' :
                                     allocatingStudent.paymentStatus === 'rejected' ? 'badge-rejected' : 'badge-warning'
                                     } shadow-sm scale-90 origin-left`}>
@@ -97,7 +91,7 @@ export default function RoomAllocation({ allocatingStudent, setAllocatingStudent
                             </div>
                         </div>
                     </div>
-                    <button className="btn btn-ghost btn-sm text-indigo-950 font-bold border border-indigo-950/20 hover:bg-black/5" onClick={() => setAllocatingStudent(null)}>
+                    <button className="btn btn-ghost btn-sm text-white/70 border border-white/20 hover:bg-white/10" onClick={() => setAllocatingStudent(null)}>
                         <HiOutlineXMark /> Cancel
                     </button>
                 </div>
@@ -151,7 +145,7 @@ export default function RoomAllocation({ allocatingStudent, setAllocatingStudent
                     <div className="theater-layout">
                         {rooms.map(room => (
                             <div key={room._id} className={`theater-room ${degreeMatchRoomIds.has(room._id) ? 'degree-match' : suggestedRoomIds.has(room._id) ? 'suggested' : ''}`}>
-                                <div className="room-label">{fmtRoom(room.wing, room.roomnumber)}</div>
+                                <div className="room-label">Room {room.roomnumber}</div>
                                 <div className="room-type-label">{room.type}</div>
                                 <div className="theater-beds">
                                     {room.beds.map(bed => (
@@ -187,7 +181,7 @@ export default function RoomAllocation({ allocatingStudent, setAllocatingStudent
                             {[
                                 ['Student', allocatingStudent?.name],
                                 ['Degree', allocatingStudent?.degree],
-                                ['Room', `${fmtRoom(wing, confirmBed.room.roomnumber)} (${confirmBed.room.type})`],
+                                ['Room', `Room ${confirmBed.room.roomnumber} (${confirmBed.room.type})`],
                                 ['Bed', `Bed ${confirmBed.bedId}`],
                             ].map(([l, v]) => (
                                 <div key={l} className="detail-item">

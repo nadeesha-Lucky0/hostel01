@@ -12,8 +12,8 @@ exports.getAllPayments = async (req, res) => {
         const allocations = await Allocation.find({}, 'studentRollNumber');
         const allocatedRolls = new Set(allocations.map(a => a.studentRollNumber));
 
-        // Fetch applications to get degree, year, and contact number
-        const applications = await Application.find({}, 'studentRollNumber studentDegree studentYear contactNumber');
+        // Fetch applications to get degree and year (not in StudentPayment)
+        const applications = await Application.find({}, 'studentRollNumber studentDegree studentYear');
         const appMap = new Map(applications.map(app => [app.studentRollNumber, app]));
 
         const students = payments.map(p => {
@@ -35,7 +35,7 @@ exports.getAllPayments = async (req, res) => {
                 email: p.email,
                 rollNumber: p.rollNumber,
                 degree: app ? app.studentDegree : 'N/A',
-                contactNumber: app ? app.contactNumber : 'N/A',
+                year: app ? app.studentYear : 'N/A',
                 wing: p.wing,
                 paymentStatus: paymentStatus,
                 applicationDate: p.createdAt || p._id.getTimestamp(),
@@ -62,158 +62,35 @@ exports.getPaymentByRoll = async (req, res) => {
 // GET all monthly submissions for Warden
 exports.getMonthlySubmissions = async (req, res) => {
     try {
-        const query = { 'submittedMonths.0': { $exists: true } };
-        
-        // Basic search filtering (finding matching students first)
-        if (req.query.search) {
-            const searchRegex = new RegExp(req.query.search, 'i');
-            query.$or = [
-                { studentName: searchRegex },
-                { email: searchRegex },
-                { rollNumber: searchRegex }
-            ];
-        }
+        const payments = await StudentPayment.find({
+            'submittedMonths.0': { $exists: true }
+        }).sort({ updatedAt: -1 });
 
-        const payments = await StudentPayment.find(query).sort({ updatedAt: -1 });
-
-        const Application = require('../models/Application');
-        
-        const populatedSubmissions = await Promise.all(payments.map(async (p) => {
-            const application = await Application.findOne({ student: p.student }).select('createdAt').lean();
-            return p.submittedMonths.map(sub => ({
-                studentId: p._id,
-                studentName: p.studentName,
-                email: p.email,
-                rollNumber: p.rollNumber,
-                wing: p.wing,
-                submissionId: sub._id,
-                months: sub.months,
-                monthCount: sub.monthCount,
-                year: sub.year,
-                amount: sub.amount,
-                documentUrl: sub.documentUrl,
-                status: sub.status,
-                submittedDate: sub.submittedDate,
-                joinedAt: application?.createdAt || null
-            }));
-        }));
-
-        let submissions = populatedSubmissions.flat();
-
-        // Secondary filtering for status if needed
-        if (req.query.status && req.query.status !== 'all') {
-            submissions = submissions.filter(s => s.status.toLowerCase() === req.query.status.toLowerCase());
-        }
+        const submissions = [];
+        payments.forEach(p => {
+            p.submittedMonths.forEach(sub => {
+                submissions.push({
+                    studentId: p._id,
+                    studentName: p.studentName,
+                    email: p.email,
+                    rollNumber: p.rollNumber,
+                    wing: p.wing,
+                    submissionId: sub._id,
+                    months: sub.months,
+                    monthCount: sub.monthCount,
+                    year: sub.year,
+                    amount: sub.amount,
+                    documentUrl: sub.documentUrl,
+                    status: sub.status,
+                    submittedDate: sub.submittedDate
+                });
+            });
+        });
 
         // Sort by date descending
         submissions.sort((a, b) => new Date(b.submittedDate) - new Date(a.submittedDate));
 
         res.json(submissions);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-};
-
-// Export monthly submissions as CSV or PDF
-exports.exportMonthlySubmissions = async (req, res) => {
-    try {
-        const query = { 'submittedMonths.0': { $exists: true } };
-        if (req.query.search) {
-            const searchRegex = new RegExp(req.query.search, 'i');
-            query.$or = [
-                { studentName: searchRegex },
-                { email: searchRegex },
-                { rollNumber: searchRegex }
-            ];
-        }
-        const payments = await StudentPayment.find(query).sort({ updatedAt: -1 });
-        
-        const populatedSubmissions = payments.flatMap(p => p.submittedMonths.map(sub => ({
-            studentName: p.studentName,
-            rollNumber: p.rollNumber,
-            email: p.email,
-            wing: p.wing,
-            months: sub.months?.join(', '),
-            amount: sub.amount,
-            status: sub.status,
-            submittedDate: sub.submittedDate
-        })));
-
-        let filteredSubmissions = populatedSubmissions;
-        if (req.query.status && req.query.status !== 'all') {
-            filteredSubmissions = populatedSubmissions.filter(s => s.status.toLowerCase() === req.query.status.toLowerCase());
-        }
-
-        const format = req.query.format || 'csv';
-
-        if (format === 'csv') {
-            const { Parser } = require('json2csv');
-            const fields = [
-                { label: 'Student Name', value: 'studentName' },
-                { label: 'Roll Number', value: 'rollNumber' },
-                { label: 'Email', value: 'email' },
-                { label: 'Months', value: 'months' },
-                { label: 'Amount', value: 'amount' },
-                { label: 'Status', value: 'status' },
-                { label: 'Submitted At', value: row => new Date(row.submittedDate).toLocaleDateString() }
-            ];
-            const parser = new Parser({ fields });
-            const csv = parser.parse(filteredSubmissions);
-            res.header('Content-Type', 'text/csv');
-            res.attachment('monthly_payments.csv');
-            return res.send(csv);
-        }
-
-        if (format === 'pdf') {
-            const PDFDocument = require('pdfkit');
-            const doc = new PDFDocument({ margin: 40, size: 'A4', layout: 'landscape' });
-            res.header('Content-Type', 'application/pdf');
-            res.attachment('monthly_payments.pdf');
-            doc.pipe(res);
-
-            doc.fontSize(18).text('Monthly Payment Submissions', { align: 'center' });
-            doc.moveDown();
-
-            const headers = ['Name', 'ID', 'Months', 'Amount', 'Status', 'Date'];
-            const colWidths = [150, 80, 150, 80, 80, 80];
-            let y = doc.y;
-            let x = 40;
-
-            doc.fontSize(10).font('Helvetica-Bold');
-            headers.forEach((h, i) => {
-                doc.text(h, x, y, { width: colWidths[i] });
-                x += colWidths[i] + 10;
-            });
-
-            doc.font('Helvetica').fontSize(9);
-            y += 20;
-
-            filteredSubmissions.forEach((s) => {
-                if (y > 550) {
-                    doc.addPage();
-                    y = 40;
-                }
-                x = 40;
-                const vals = [
-                    s.studentName,
-                    s.rollNumber,
-                    s.months,
-                    `LKR ${s.amount?.toLocaleString()}`,
-                    s.status,
-                    new Date(s.submittedDate).toLocaleDateString()
-                ];
-                vals.forEach((v, i) => {
-                    doc.text(String(v || '-'), x, y, { width: colWidths[i] });
-                    x += colWidths[i] + 10;
-                });
-                y += 18;
-            });
-
-            doc.end();
-            return;
-        }
-
-        res.status(400).json({ error: 'Invalid format' });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

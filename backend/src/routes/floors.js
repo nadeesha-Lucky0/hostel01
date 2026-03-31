@@ -14,12 +14,6 @@ router.post('/bulk', floorController.createFloorsBulk);
 // PATCH toggle floor active status
 router.patch('/:id/toggle', floorController.toggleFloorStatus);
 
-// Debug route for checking database counts
-router.get('/debug-counts', floorController.debugCounts);
-
-// Migration route for updating existing room identification
-router.post('/migrate-room-ids', floorController.migrateRoomIDs);
-
 // DELETE floor and its rooms
 router.delete('/:id', floorController.deleteFloor);
 

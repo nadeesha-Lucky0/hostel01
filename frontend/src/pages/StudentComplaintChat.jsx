@@ -59,10 +59,8 @@ export default function StudentComplaintChat() {
                 headers: { Authorization: `Bearer ${user.token}` }
             });
             const data = await res.json();
-            if (data.success) {
-                setComplaint(data.data);
-                if (data.data.studentFeedback) setFeedbackGiven(data.data.studentFeedback);
-            } else setError(data.message);
+            if (data.success) setComplaint(data.data);
+            else setError(data.message);
         } catch {
             setError('Failed to load complaint');
         } finally {
@@ -97,32 +95,40 @@ export default function StudentComplaintChat() {
         }
     };
 
-    // Send feedback to backend (updates status and records message)
+    // Auto-send feedback message and optionally reopen complaint
     const sendFeedback = async (type) => {
         if (sendingFeedback) return;
         setSendingFeedback(true);
         try {
-            const res = await fetch(`${API}/complaints/${id}/feedback`, {
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${user.token}`
-                },
-                body: JSON.stringify({ feedback: type })
-            });
+            const feedbackText = type === 'great'
+                ? '✅ Student feedback: Issue resolved successfully. Thank you for your help!'
+                : '⚠️ Student feedback: Issue is NOT resolved yet. Please reopen and assist further.';
 
-            const data = await res.json();
-            if (data.success) {
-                setComplaint(data.data);
-                setFeedbackGiven(type);
-                if (type === 'not-resolved') {
-                    toast('Complaint reopened — warden has been notified.', { icon: '🔄' });
-                } else {
-                    toast.success('Feedback sent! Glad the issue was resolved. 🎉');
-                }
+            // 1. Auto-send message from student to warden
+            const formData = new FormData();
+            formData.append('content', feedbackText);
+            const msgRes = await fetch(`${API}/complaints/${id}/message-student`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${user.token}` },
+                body: formData
+            });
+            const msgData = await msgRes.json();
+            if (msgData.success) setComplaint(msgData.data);
+
+            // 2. If "Not Resolved" — reopen the complaint so warden can act
+            if (type === 'not-resolved') {
+                await fetch(`${API}/complaints/${id}/status`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: 'in-progress' })
+                });
+                setComplaint(prev => prev ? { ...prev, status: 'in-progress' } : prev);
+                toast('Complaint reopened — warden has been notified.', { icon: '🔄' });
             } else {
-                toast.error(data.message || 'Failed to send feedback');
+                toast.success('Feedback sent! Glad the issue was resolved. 🎉');
             }
+
+            setFeedbackGiven(type);
         } catch {
             toast.error('Failed to send feedback');
         } finally {

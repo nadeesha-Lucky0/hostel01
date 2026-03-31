@@ -96,7 +96,7 @@ const SecurityRecords = () => {
                     onClick={handleExport}
                     className="flex items-center gap-2 px-6 py-3 bg-white dark:bg-white/5 hover:bg-slate-50 dark:hover:bg-white/10 text-slate-900 dark:text-white rounded-2xl transition-all border border-slate-200 dark:border-white/10 font-bold text-sm shadow-sm"
                 >
-                    <HiOutlineArrowDownTray className="text-lg text-indigo-600 dark:text-white" />
+                    <HiOutlineArrowDownTray className="text-lg text-emerald-600 dark:text-white" />
                     Export CSV
                 </button>
             </div>
@@ -106,11 +106,11 @@ const SecurityRecords = () => {
                 <div className="md:col-span-12 flex flex-col sm:flex-row gap-4">
                     <div className="flex-grow relative group">
                         <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-slate-400 dark:text-slate-500 transition-colors">
-                            <HiOutlineMagnifyingGlass className="text-xl group-focus-within:text-indigo-500 transition-colors" />
+                            <HiOutlineMagnifyingGlass className="text-xl group-focus-within:text-emerald-500 transition-colors" />
                         </div>
                         <input 
                             type="text" 
-                            className="w-full pl-12 pr-4 py-4 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/5 rounded-2xl text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none font-medium shadow-sm"
+                            className="w-full pl-12 pr-4 py-4 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/5 rounded-2xl text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all outline-none font-medium shadow-sm"
                             placeholder="Search by student name, IT number, or destination..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}

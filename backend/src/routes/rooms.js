@@ -5,6 +5,9 @@ const roomController = require('../controllers/roomController');
 // GET rooms (filter by floor, wing)
 router.get('/', roomController.getRooms);
 
+// POST create a room
+router.post('/', roomController.createRoom);
+
 // PUT update room (number, type)
 router.put('/:id', roomController.updateRoom);
 

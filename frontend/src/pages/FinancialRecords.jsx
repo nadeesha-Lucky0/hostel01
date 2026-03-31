@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { HiOutlineDocumentChartBar, HiOutlineMagnifyingGlass, HiOutlineDocumentText, HiOutlineCalendarDays, HiOutlineArrowTopRightOnSquare, HiOutlineTableCells, HiOutlineDocumentArrowDown } from 'react-icons/hi2';
-import { api } from '../services/api';
+import { HiOutlineDocumentChartBar, HiOutlineMagnifyingGlass, HiOutlineDocumentText, HiOutlineCalendarDays, HiOutlineArrowTopRightOnSquare } from 'react-icons/hi2';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 
@@ -26,26 +25,6 @@ const FinancialRecords = () => {
             toast.error('Failed to fetch records');
         } finally {
             setLoading(false);
-        }
-    };
-
-    // Helper for secure file downloads with Bearer token
-    const downloadSecureFile = async (url, filename) => {
-        try {
-            const token = user?.token || sessionStorage.getItem('hostel_token');
-            const res = await fetch(url, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (!res.ok) throw new Error('Failed to download file');
-            const blob = await res.blob();
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = filename;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        } catch (err) {
-            toast.error(err.message || 'Download failed');
         }
     };
 
@@ -92,31 +71,12 @@ const FinancialRecords = () => {
 
     return (
         <div className="max-w-7xl mx-auto p-6 md:p-10 space-y-8 animate-in fade-in duration-500">
-            {/* Hero Section */}
-            <div
-                className="relative overflow-hidden rounded-[2.5rem] p-8 md:p-10 text-white mb-10"
-                style={{ background: 'linear-gradient(135deg, #1A3263 0%, #2D4A8A 100%)', boxShadow: '0 20px 60px rgba(26, 50, 99, 0.3)' }}
-            >
-                <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full bg-white/[0.08]" />
-                <div className="absolute -bottom-16 -left-8 w-40 h-40 rounded-full bg-white/[0.05]" />
-                <div className="relative z-10">
-                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 text-[11px] font-bold mb-4 backdrop-blur-sm border border-white/10">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]" />
-                        SYSTEM ONLINE
-                    </div>
-                    <div className="flex items-center gap-3 mb-2">
-                        <div className="w-11 h-11 rounded-2xl bg-white/10 flex items-center justify-center">
-                            <HiOutlineDocumentChartBar className="text-2xl" />
-                        </div>
-                        <div>
-                            <h1 className="text-3xl md:text-4xl font-black tracking-tight">Refundable Records</h1>
-                            <p className="text-white/75 text-sm font-medium mt-1">Audit log of student security deposit submissions.</p>
-                        </div>
-                    </div>
-                </div>
+            <div>
+                <h1 className="text-3xl font-black text-slate-900 dark:text-white leading-tight">Refundable Payment Records</h1>
+                <p className="text-slate-500 dark:text-slate-400 font-bold text-sm mt-1 italic">Security deposit submissions from students</p>
             </div>
 
-            <div className="flex flex-col md:flex-row gap-4 items-center justify-between mb-8">
+            <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
                 <div className="relative w-full md:w-96">
                     <HiOutlineMagnifyingGlass className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-lg" />
                     <input
@@ -127,28 +87,8 @@ const FinancialRecords = () => {
                         className="w-full pl-12 pr-5 py-4 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-sm focus:ring-4 focus:ring-indigo-50 dark:focus:ring-indigo-500/10 outline-none transition-all font-bold text-slate-700 dark:text-slate-200"
                     />
                 </div>
-                <div className="flex items-center gap-2">
-                    <button 
-                        onClick={() => {
-                            const url = api.getFinancialRecordsExportUrl('csv', { search: searchTerm });
-                            downloadSecureFile(url, `financial_records_${new Date().toLocaleDateString()}.csv`);
-                        }}
-                        className="flex items-center gap-2 px-6 py-3.5 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 rounded-2xl font-black text-[10px] uppercase tracking-wider hover:bg-slate-50 dark:hover:bg-slate-800 transition-all shadow-sm cursor-pointer"
-                    >
-                        <HiOutlineTableCells className="text-lg" /> CSV
-                    </button>
-                    <button 
-                        onClick={() => {
-                            const url = api.getFinancialRecordsExportUrl('pdf', { search: searchTerm });
-                            downloadSecureFile(url, `financial_records_${new Date().toLocaleDateString()}.pdf`);
-                        }}
-                        className="flex items-center gap-2 px-6 py-3.5 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 rounded-2xl font-black text-[10px] uppercase tracking-wider hover:bg-slate-50 dark:hover:bg-slate-800 transition-all shadow-sm cursor-pointer"
-                    >
-                        <HiOutlineDocumentArrowDown className="text-lg" /> PDF
-                    </button>
-                    <div className="text-[11px] font-black text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-900 px-5 py-4 rounded-2xl border border-slate-100 dark:border-slate-800 uppercase tracking-[0.2em] shadow-sm">
-                        Total Transactions: {allPayments.length}
-                    </div>
+                <div className="text-[11px] font-black text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-900 px-5 py-3 rounded-2xl border border-slate-100 dark:border-slate-800 uppercase tracking-[0.2em] shadow-sm">
+                    Total Transactions: {allPayments.length}
                 </div>
             </div>
 

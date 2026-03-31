@@ -152,7 +152,7 @@ const updateStatus = async (req, res) => {
         const complaint = await Complaint.findByIdAndUpdate(
             req.params.id,
             { status, updatedAt: Date.now() },
-            { returnDocument: 'after' }
+            { new: true }
         ).populate('submittedBy', 'name email studentId');
 
         if (!complaint) return res.status(404).json({ success: false, message: 'Complaint not found' });
@@ -243,54 +243,6 @@ const getUnreadCounts = async (req, res) => {
     }
 };
 
-// @desc   Submit feedback for a resolved complaint (Student)
-const submitFeedback = async (req, res) => {
-    try {
-        const { feedback } = req.body;
-        if (!['great', 'not-resolved'].includes(feedback)) {
-            return res.status(400).json({ success: false, message: 'Invalid feedback type' });
-        }
-
-        const complaint = await Complaint.findById(req.params.id);
-        if (!complaint) return res.status(404).json({ success: false, message: 'Complaint not found' });
-
-        // Check ownership
-        if (complaint.submittedBy.toString() !== req.user._id.toString()) {
-            return res.status(403).json({ success: false, message: 'Access denied' });
-        }
-
-        complaint.studentFeedback = feedback;
-
-        const feedbackText = feedback === 'great'
-            ? '✅ Student feedback: Issue resolved successfully. Thank you for your help!'
-            : '⚠️ Student feedback: Issue is NOT resolved yet. Please reopen and assist further.';
-
-        // Add system message from student
-        complaint.messages.push({
-            sender: req.user._id,
-            content: feedbackText,
-            senderRole: 'student'
-        });
-
-        // If not resolved, reopen
-        if (feedback === 'not-resolved') {
-            complaint.status = 'in-progress';
-            complaint.wardenUnreadCount += 1;
-        }
-
-        complaint.updatedAt = Date.now();
-        await complaint.save();
-
-        const updated = await Complaint.findById(req.params.id)
-            .populate('submittedBy', 'name email studentId')
-            .populate('messages.sender', 'name role');
-
-        res.json({ success: true, data: updated });
-    } catch (err) {
-        res.status(500).json({ success: false, message: err.message });
-    }
-};
-
 module.exports = {
     createComplaint,
     getMyComplaints,
@@ -300,6 +252,5 @@ module.exports = {
     updateStatus,
     sendToDean,
     deleteComplaint,
-    getUnreadCounts,
-    submitFeedback
+    getUnreadCounts
 };

@@ -3,8 +3,6 @@ const StudentPayment = require('../models/StudentPayment'); // Replaced Financia
 const Room = require('../models/Room');
 const Floor = require('../models/Floor');
 const Application = require('../models/Application'); // Moved Application import to top level
-const { getMovementStatsLogic } = require('./qrController');
-const User = require('../models/User');
 
 // GET all allocations with filters
 exports.getAllocations = async (req, res) => {
@@ -19,16 +17,6 @@ exports.getAllocations = async (req, res) => {
             if (req.query.fromDate) filter.allocatedAt.$gte = new Date(req.query.fromDate);
             if (req.query.toDate) filter.allocatedAt.$lte = new Date(req.query.toDate);
         }
-
-        if (req.query.search) {
-            const searchRegex = new RegExp(req.query.search, 'i');
-            filter.$or = [
-                { studentName: searchRegex },
-                { studentEmail: searchRegex },
-                { studentRollNumber: searchRegex }
-            ];
-        }
-
         const allocations = await Allocation.find(filter)
             .sort({ allocatedAt: -1 })
             .lean();
@@ -102,20 +90,11 @@ exports.createAllocation = async (req, res) => {
             allocatedBy: 'System'
         });
 
-        // Update the Application record with formatted room number (M1/F1 style)
-        if (app) {
-            const wingPrefix = studentPayment.wing === 'female' ? 'F' : 'M';
-            app.assignedRoom = `${wingPrefix}${room.roomnumber}`;
-            app.applicationStatus = 'Room Allocated';
-            await app.save();
-        }
-
         res.status(201).json(allocation);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 };
-
 
 // GET smart room suggestions
 exports.getSuggestions = async (req, res) => {
@@ -186,15 +165,6 @@ exports.exportAllocations = async (req, res) => {
         if (req.query.floorNumber) filter.floorNumber = parseInt(req.query.floorNumber);
         if (req.query.roomType) filter.roomType = req.query.roomType;
         if (req.query.degree) filter.studentDegree = req.query.degree;
-
-        if (req.query.search) {
-            const searchRegex = new RegExp(req.query.search, 'i');
-            filter.$or = [
-                { studentName: searchRegex },
-                { studentEmail: searchRegex },
-                { studentRollNumber: searchRegex }
-            ];
-        }
 
         const allocations = await Allocation.find(filter)
             .sort({ allocatedAt: -1 });
@@ -296,15 +266,14 @@ exports.getStats = async (req, res) => {
             });
         });
 
-        const totalStudents = await User.countDocuments({ role: 'student' });
-        const paymentWaiting = await Application.countDocuments({ applicationStatus: 'Pending' });
-        const readyToActivate = await Application.countDocuments({ applicationStatus: 'Payment Approved' });
+        const totalStudents = await StudentPayment.countDocuments();
+        const pendingApplications = await StudentPayment.countDocuments({ 
+            $or: [{ refund_status: 'Pending' }, { 'refundPayment.paymentStatus': 'Pending' }] 
+        });
+        const successPayments = await StudentPayment.countDocuments({ 
+            $or: [{ refund_status: 'Accepted' }, { 'refundPayment.paymentStatus': 'Approved' }] 
+        });
         const totalAllocations = await Allocation.countDocuments();
-        
-        // --- Movement Stats (Status based) ---
-        // Refactored to qrController for better structure
-        const movementData = await getMovementStatsLogic();
-        const { studentsInside, studentsOutside, activeOvernight } = movementData;
 
         // Per-floor occupancy
         const floors = await Floor.find().sort({ wing: 1, floorNumber: 1 });
@@ -329,16 +298,14 @@ exports.getStats = async (req, res) => {
             });
         }
 
-        // Process everything by wing
+        // Aggregate wing stats from floorStats
         const maleStats = {
             totalFloors: 0, totalRooms: 0, activeRooms: 0, totalBeds: 0, occupiedBeds: 0, availableBeds: 0,
-            totalStudents: 0, paymentWaiting: 0, readyToActivate: 0, totalAllocations: 0,
-            ...movementData.maleStats
+            totalStudents: 0, pendingApplications: 0, readyToAllocate: 0, totalAllocations: 0
         };
         const femaleStats = {
             totalFloors: 0, totalRooms: 0, activeRooms: 0, totalBeds: 0, occupiedBeds: 0, availableBeds: 0,
-            totalStudents: 0, paymentWaiting: 0, readyToActivate: 0, totalAllocations: 0,
-            ...movementData.femaleStats
+            totalStudents: 0, pendingApplications: 0, readyToAllocate: 0, totalAllocations: 0
         };
 
         // Helper to aggregate
@@ -367,18 +334,19 @@ exports.getStats = async (req, res) => {
         femaleStats.totalRooms = femaleRooms.length;
         femaleStats.activeRooms = femaleRooms.filter(r => r.isactive).length;
 
-        // Student stats by wing (from Application model)
-        const maleStudentsFiltered = await Application.find({ studentWing: 'male' });
-        const femaleStudentsFiltered = await Application.find({ studentWing: 'female' });
+        // Student stats by wing
+        const maleStudents = await StudentPayment.find({ wing: 'male' });
+        const femaleStudents = await StudentPayment.find({ wing: 'female' });
 
-        maleStats.totalStudents = maleStudentsFiltered.length;
-        maleStats.paymentWaiting = maleStudentsFiltered.filter(s => s.applicationStatus === 'Pending').length;
-        maleStats.readyToActivate = maleStudentsFiltered.filter(s => s.applicationStatus === 'Payment Approved').length;
+        maleStats.totalStudents = maleStudents.length;
+        maleStats.pendingApplications = maleStudents.filter(s => s.refund_status === 'Pending').length;
+        maleStats.successPayments = maleStudents.filter(s => s.refund_status === 'Accepted').length;
 
-        femaleStats.totalStudents = femaleStudentsFiltered.length;
-        femaleStats.paymentWaiting = femaleStudentsFiltered.filter(s => s.applicationStatus === 'Pending').length;
-        femaleStats.readyToActivate = femaleStudentsFiltered.filter(s => s.applicationStatus === 'Payment Approved').length;
+        femaleStats.totalStudents = femaleStudents.length;
+        femaleStats.pendingApplications = femaleStudents.filter(s => s.refund_status === 'Pending').length;
+        femaleStats.successPayments = femaleStudents.filter(s => s.refund_status === 'Accepted').length;
 
+        // Allocations by wing
         maleStats.totalAllocations = await Allocation.countDocuments({ studentWing: 'male' });
         femaleStats.totalAllocations = await Allocation.countDocuments({ studentWing: 'female' });
 
@@ -391,12 +359,9 @@ exports.getStats = async (req, res) => {
             availableBeds: totalBeds - occupiedBeds,
             occupancyRate: totalBeds > 0 ? Math.round((occupiedBeds / totalBeds) * 100) : 0,
             totalStudents,
-            paymentWaiting,
-            readyToActivate,
+            pendingApplications,
+            readyToAllocate: successPayments,
             totalAllocations,
-            studentsInside,
-            studentsOutside,
-            activeOvernight,
             floorStats,
             maleStats,
             femaleStats

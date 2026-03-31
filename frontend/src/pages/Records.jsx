@@ -1,21 +1,15 @@
 import { useState, useEffect } from 'react'
 import { api } from '../services/api'
 import toast from 'react-hot-toast'
-import { HiOutlineDocumentArrowDown, HiOutlineFunnel, HiPencil, HiTrash, HiXMark, HiMagnifyingGlass, HiOutlineTableCells } from 'react-icons/hi2'
+import { HiOutlineDocumentArrowDown, HiOutlineFunnel, HiPencil, HiTrash, HiXMark } from 'react-icons/hi2'
 import ConfirmModal from '../components/ConfirmModal'
-
-// Format room number as M1/F1 based on wing
-const fmtRoom = (wing, roomnumber) => {
-    const prefix = wing === 'female' ? 'F' : 'M';
-    return `${prefix}${roomnumber}`;
-};
 
 
 export default function Records() {
     const [allocations, setAllocations] = useState([])
     const [degrees, setDegrees] = useState([])
     const [loading, setLoading] = useState(true)
-    const [filters, setFilters] = useState({ wing: '', floorNumber: '', roomType: '', degree: '', fromDate: '', toDate: '', search: '' })
+    const [filters, setFilters] = useState({ wing: '', floorNumber: '', roomType: '', degree: '', fromDate: '', toDate: '' })
 
     // Edit Modal State
     const [isEditModalOpen, setIsEditModalOpen] = useState(false)
@@ -54,7 +48,7 @@ export default function Records() {
     }
 
     const applyFilters = () => loadAllocations(filters)
-    const clearFilters = () => { const c = { wing: '', floorNumber: '', roomType: '', degree: '', fromDate: '', toDate: '', search: '' }; setFilters(c); loadAllocations(c) }
+    const clearFilters = () => { const c = { wing: '', floorNumber: '', roomType: '', degree: '', fromDate: '', toDate: '' }; setFilters(c); loadAllocations(c) }
 
     const handleDelete = (id, studentName) => {
         setConfirmModal({
@@ -127,37 +121,17 @@ export default function Records() {
         finally { setUpdating(false) }
     }
 
-    const downloadSecureFile = async (url, filename) => {
-        try {
-            const token = sessionStorage.getItem('hostel_token');
-            const res = await fetch(url, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (!res.ok) throw new Error('Failed to download file');
-            const blob = await res.blob();
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = filename;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        } catch (err) {
-            toast.error(err.message || 'Download failed');
-        }
-    };
-
     const handleExport = (fmt) => {
         const params = {}
         Object.entries(filters).forEach(([k, v]) => { if (v) params[k] = v })
-        const url = api.getExportUrl(fmt, params);
-        downloadSecureFile(url, `allocation_records_${new Date().toLocaleDateString()}.${fmt}`);
+        window.open(api.getExportUrl(fmt, params), '_blank')
     }
 
     return (
-        <div className="p-4 sm:p-10 space-y-10 w-full animate-fade-in transition-colors">
-            <div className="page-header mb-10">
-                <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Records & <span className="text-indigo-500 italic">Reports</span></h2>
-                <p className="text-slate-500 dark:text-slate-400 font-medium text-sm mt-1">View allocation records with advanced filtering and export</p>
+        <div className="animate-fade-in">
+            <div className="page-header">
+                <h2 className="dark:text-white">Records & Reports</h2>
+                <p className="dark:text-slate-400">View allocation records with advanced filtering and export</p>
             </div>
 
             <div className="filter-bar">
@@ -205,54 +179,29 @@ export default function Records() {
                 </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-6">
-                {/* Search Bar on Left */}
-                <div className="relative flex-1 max-w-md">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
-                        <HiMagnifyingGlass className="text-lg" />
-                    </div>
-                    <input
-                        type="text"
-                        placeholder="Search by Name, Email or Student ID..."
-                        className="w-full pl-11 pr-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all dark:text-slate-200"
-                        value={filters.search}
-                        onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                        onKeyDown={(e) => e.key === 'Enter' && applyFilters()}
-                    />
-                </div>
-
-                {/* Exports & Count on Right */}
-                <div className="flex items-center gap-3">
-                    <span className="text-[11px] font-black uppercase tracking-widest text-slate-400 mr-2">
-                        {allocations.length} {allocations.length === 1 ? 'record' : 'records'}
-                    </span>
-                    <div className="flex items-center gap-2">
-                        <button 
-                            className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 rounded-xl font-bold text-[10px] uppercase tracking-wider hover:bg-slate-50 dark:hover:bg-slate-800 transition-all border-none cursor-pointer" 
-                            onClick={() => handleExport('csv')}
-                        >
-                            <HiOutlineTableCells className="text-lg" /> CSV
-                        </button>
-                        <button 
-                            className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 rounded-xl font-bold text-[10px] uppercase tracking-wider hover:bg-slate-50 dark:hover:bg-slate-800 transition-all border-none cursor-pointer" 
-                            onClick={() => handleExport('pdf')}
-                        >
-                            <HiOutlineDocumentArrowDown className="text-lg" /> PDF
-                        </button>
-                    </div>
-                </div>
+            <div className="export-bar py-4">
+                <button className="btn btn-secondary btn-sm dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-700" onClick={() => handleExport('csv')}><HiOutlineDocumentArrowDown /> CSV</button>
+                <button className="btn btn-secondary btn-sm dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-700" onClick={() => handleExport('pdf')}><HiOutlineDocumentArrowDown /> PDF</button>
+                <span className="text-sm text-slate-500 dark:text-slate-400 font-semibold ml-2">
+                    {allocations.length} record{allocations.length !== 1 ? 's' : ''}
+                </span>
             </div>
 
             <div className="card dark:bg-slate-900 dark:border-slate-800" style={{ padding: 0, overflow: 'hidden', marginBottom: 0 }}>
                 <div className="table-container">
                     <table>
                         <thead>
-                            <tr className="border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.02]">
-                                <th className="px-8 py-6 text-left text-[11px] font-black text-slate-500 dark:text-white/40 uppercase tracking-widest">Student Information</th>
-                                <th className="px-8 py-6 text-center text-[11px] font-black text-slate-500 dark:text-white/40 uppercase tracking-widest">Room Details</th>
-                                <th className="px-8 py-6 text-center text-[11px] font-black text-slate-500 dark:text-white/40 uppercase tracking-widest">Payment</th>
-                                <th className="px-8 py-6 text-center text-[11px] font-black text-slate-500 dark:text-white/40 uppercase tracking-widest">Allocated On</th>
-                                <th className="px-8 py-6 text-right text-[11px] font-black text-slate-500 dark:text-white/40 uppercase tracking-widest">Actions</th>
+                            <tr>
+                                <th className="dark:text-slate-300">Student</th>
+                                <th className="dark:text-slate-300">Degree</th>
+                                <th className="dark:text-slate-300">Wing</th>
+                                <th className="dark:text-slate-300">Floor</th>
+                                <th className="dark:text-slate-300">Room</th>
+                                <th className="dark:text-slate-300">Type</th>
+                                <th className="dark:text-slate-300">Bed</th>
+                                <th className="dark:text-slate-300">Refundable Payment</th>
+                                <th className="dark:text-slate-300">Date</th>
+                                <th className="text-right dark:text-slate-300">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -261,27 +210,31 @@ export default function Records() {
                             ) : allocations.length === 0 ? (
                                 <tr><td colSpan="9" className="text-center py-16 text-slate-400">No records found</td></tr>
                             ) : allocations.map(a => (
-                                <tr key={a._id} className="hover:bg-slate-50 dark:hover:bg-white/[0.01] transition-colors group border-b border-slate-50 dark:border-white/5">
-                                    <td className="px-8 py-6">
+                                <tr key={a._id}>
+                                    <td>
                                         <div>
-                                            <div className="font-bold text-[13px] text-slate-800 dark:text-slate-200 leading-tight group-hover:text-indigo-600 transition-colors uppercase">{a.studentName}</div>
-                                            <div className="text-[11px] font-medium text-slate-400 dark:text-slate-500 italic mt-0.5">{a.studentRollNumber}</div>
+                                            <div className="font-bold text-[13px] text-slate-800 dark:text-slate-200">{a.studentName}</div>
+                                            <div className="text-[11px] text-slate-400 dark:text-slate-400">{a.studentRollNumber}</div>
                                         </div>
                                     </td>
-                                    <td className="px-8 py-6 text-center">
-                                        <div className="text-[11px] font-black text-indigo-400 uppercase tracking-widest leading-none mb-1">{a.roomType} · Bed {a.id || a.bedId}</div>
-                                        <div className="text-[9px] text-slate-400 font-bold uppercase">{a.wing} Wing · Floor {a.floorNumber} · Room {a.roomnumber}</div>
-                                    </td>
-                                    <td className="px-8 py-6 text-center">
-                                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${a.paymentStatus === 'success' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-amber-500/10 text-amber-600'}`}>
-                                            {a.paymentStatus === 'success' ? 'Paid' : 'Pending'}
+                                    <td><span className="badge badge-neutral">{a.studentDegree}</span></td>
+                                    <td><span className={`badge ${a.wing === 'male' ? 'badge-info' : 'badge-neutral'}`}>{a.wing === 'male' ? 'Male' : 'Female'}</span></td>
+                                    <td className="font-semibold dark:text-slate-200">Floor {a.floorNumber}</td>
+                                    <td className="font-bold text-slate-800 dark:text-slate-200">Room {a.roomnumber}</td>
+                                    <td className="dark:text-slate-300">{a.roomType}</td>
+                                    <td className="dark:text-slate-300"><span className="badge badge-info">Bed {a.id || a.bedId}</span></td>
+                                    <td className="dark:text-slate-300">
+                                        <span className={`badge ${a.paymentStatus === 'success' ? 'badge-success' :
+                                            a.paymentStatus === 'rejected' ? 'badge-rejected' : 'badge-warning'
+                                            }`}>
+                                            {a.paymentStatus === 'success' ? 'Paid' : a.paymentStatus === 'rejected' ? 'Rejected' : 'Pending'}
                                         </span>
                                     </td>
-                                    <td className="px-8 py-6 text-center text-[12px] font-bold text-slate-500 dark:text-slate-400">{new Date(a.allocatedAt).toLocaleDateString()}</td>
-                                    <td className="px-8 py-6 text-right">
-                                        <div className="flex justify-end gap-1.5">
-                                            <button className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-slate-800 text-amber-500 hover:bg-amber-500 hover:text-white transition-all flex items-center justify-center shadow-sm" onClick={() => openEditModal(a)}><HiPencil /></button>
-                                            <button className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-slate-800 text-rose-500 hover:bg-rose-500 hover:text-white transition-all flex items-center justify-center shadow-sm" onClick={() => handleDelete(a._id, a.studentName)}><HiTrash /></button>
+                                    <td className="text-slate-400 dark:text-slate-400">{new Date(a.allocatedAt).toLocaleDateString()}</td>
+                                    <td className="text-right">
+                                        <div className="flex justify-end gap-1">
+                                            <button className="btn btn-ghost btn-xs text-[#FAB95B]" onClick={() => openEditModal(a)}><HiPencil /></button>
+                                            <button className="btn btn-ghost btn-xs text-rose-500" onClick={() => handleDelete(a._id, a.studentName)}><HiTrash /></button>
                                         </div>
                                     </td>
                                 </tr>
@@ -319,7 +272,7 @@ export default function Records() {
                                     ['Wing', editingAllocation?.wing === 'male' ? '♂ Male Wing' : '♀ Female Wing'],
                                     ['Phone', '—'],
                                     ['Applied', editingAllocation?.allocatedAt ? new Date(editingAllocation.allocatedAt).toLocaleDateString() : '—'],
-                                    ['Current Room', fmtRoom(editingAllocation?.wing, editingAllocation?.roomnumber)],
+                                    ['Current Room', `Room ${editingAllocation?.roomnumber}`],
                                     ['Current Bed', `Bed ${editingAllocation?.bedId}`],
                                     ['Guardian', '—'],
                                     ['Guardian Phone', '—'],

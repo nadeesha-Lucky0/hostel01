@@ -28,6 +28,40 @@ exports.getRooms = async (req, res) => {
     }
 };
 
+// POST create a room
+exports.createRoom = async (req, res) => {
+    try {
+        const { floor, wing, roomnumber, type } = req.body;
+
+        // Get floor info for IDs and number
+        const FloorModel = require('../models/Floor');
+        const floorObj = await FloorModel.findById(floor);
+        if (!floorObj) return res.status(404).json({ error: 'Floor not found' });
+
+        // Generate Roomid
+        const lastRoom = await Room.findOne().sort({ Roomid: -1 });
+        let nextNum = 1;
+        if (lastRoom && lastRoom.Roomid) {
+            const matches = lastRoom.Roomid.match(/\d+/);
+            if (matches) nextNum = parseInt(matches[0]) + 1;
+        }
+        const Roomid = `RM${String(nextNum).padStart(3, '0')}`;
+
+        const room = await Room.create({
+            Roomid,
+            floorid: floorObj.floorID,
+            floor: floorObj._id,
+            floorNumber: floorObj.floorNumber,
+            wing,
+            roomnumber,
+            type
+        });
+        res.status(201).json(room);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
 // PUT update room (number, type)
 exports.updateRoom = async (req, res) => {
     try {
@@ -53,6 +87,18 @@ exports.updateRoom = async (req, res) => {
             }
         }
 
+        // Handle manual bed status updates
+        if (req.body.beds) {
+            req.body.beds.forEach(updatedBed => {
+                const bed = room.beds.find(b => b.bedId === updatedBed.bedId);
+                if (bed) {
+                    if (updatedBed.isOccupied !== undefined) bed.isOccupied = updatedBed.isOccupied;
+                    if (updatedBed.isOccupied === false) {
+                        bed.student = null; // Clear student if making available
+                    }
+                }
+            });
+        }
         await room.save();
         res.json(room);
     } catch (err) {
@@ -91,32 +137,5 @@ exports.deleteRoom = async (req, res) => {
         res.json({ message: 'Room deleted' });
     } catch (err) {
         res.status(500).json({ error: err.message });
-    }
-};
-
-// Helper: Release beds during student purge
-exports.releaseStudentBeds = async (allocations) => {
-    try {
-        if (!allocations || !Array.isArray(allocations)) return;
-
-        for (const alc of allocations) {
-            const room = await Room.findOne({
-                floorNumber: alc.floorNumber,
-                roomnumber: alc.roomnumber
-            });
-
-            if (room) {
-                const bed = room.beds.find(b => b.bedId === alc.bedId);
-                if (bed) {
-                    bed.isOccupied = false;
-                    bed.student = null;
-                }
-                await room.save();
-            }
-        }
-        return true;
-    } catch (err) {
-        console.error('Failed to release room beds:', err);
-        throw err;
     }
 };

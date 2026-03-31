@@ -32,8 +32,6 @@ export const AuthProvider = ({ children }) => {
         // Role-based redirection
         if (userData.role?.toLowerCase() === 'warden') {
             navigate('/dashboard');
-        } else if (userData.role?.toLowerCase() === 'admin') {
-            navigate('/admin/dashboard');
         } else if (userData.role?.toLowerCase() === 'financial') {
             navigate('/financial/dashboard');
         } else if (userData.role?.toLowerCase() === 'security') {

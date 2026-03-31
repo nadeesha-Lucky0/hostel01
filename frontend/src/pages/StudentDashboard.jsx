@@ -28,25 +28,13 @@ import {
     HiOutlineMapPin,
     HiOutlineKey,
     HiOutlineArrowsRightLeft,
-    HiOutlineArrowRightOnRectangle,
-    HiOutlineDevicePhoneMobile,
-    HiOutlineLockClosed,
-    HiOutlineCog6Tooth,
-    HiOutlineEye,
-    HiOutlineEyeSlash
+    HiOutlineArrowRightOnRectangle
 } from 'react-icons/hi2';
 import { useAuth } from '../context/AuthContext.jsx';
 import toast from 'react-hot-toast';
 import PaymentTab from '../components/PaymentTab.jsx';
-import { api } from '../services/api.js';
 
 const API = '/api';
-
-// Format room number as M1/F1 based on wing
-const fmtRoom = (wing, roomnumber) => {
-    const prefix = wing === 'female' ? 'F' : 'M';
-    return `${prefix}${roomnumber}`;
-};
 
 const statusConfig = {
     open: { label: 'Open', color: 'bg-rose-100 text-rose-700', icon: HiOutlineExclamationCircle },
@@ -330,23 +318,22 @@ const StudentDashboard = () => {
         <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500">
             {/* ── Unified Welcome Banner ── */}
             <div className="relative overflow-hidden bg-gradient-to-br from-[#1A3263] via-[#1e3a8a] to-indigo-900 rounded-[2.5rem] p-8 md:p-10 text-white shadow-2xl border border-white/5 group">
+                {/* Status Badge - Now in the absolute corner of the blue box */}
+                <div className="absolute top-4 right-4 md:top-6 md:right-6 z-30">
+                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border shadow-xl backdrop-blur-md transition-transform hover:scale-105 ${user.accountStatus?.toLowerCase() === 'verified'
+                        ? 'bg-emerald-500 text-white border-emerald-400'
+                        : 'bg-[#FAB95B] text-[#1A3263] border-amber-300'
+                        }`}>
+                        {user.accountStatus?.toLowerCase() === 'verified' ? <HiOutlineCheckBadge className="text-sm" /> : <div className="w-1.5 h-1.5 rounded-full bg-[#1A3263] animate-pulse" />}
+                        <span className="text-[10px] font-black uppercase tracking-wider">{user.accountStatus || 'Pending'}</span>
+                    </div>
+                </div>
+
                 {/* Decorative background elements */}
                 <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full -mr-48 -mt-48 blur-3xl animate-pulse" />
                 <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-500/10 rounded-full -ml-32 -mb-32 blur-3xl" />
 
                 <div className="relative z-10 flex flex-col md:flex-row items-center gap-8 text-center md:text-left">
-                    {/* Status Mark - Top Right */}
-                    <div className="absolute top-0 right-0 z-20">
-                        <div className={`flex items-center gap-2 px-4 py-2 rounded-2xl border shadow-xl backdrop-blur-md ${user.accountStatus?.toLowerCase() === 'verified'
-                            ? 'bg-emerald-500 text-white border-emerald-400'
-                            : 'bg-[#FAB95B] text-[#1A3263] border-amber-300'
-                            }`}>
-                            {user.accountStatus?.toLowerCase() === 'verified' ? <HiOutlineCheckBadge className="text-lg" /> : <div className="w-2 h-2 rounded-full bg-[#1A3263] animate-pulse" />}
-                            <span className="text-xs font-black uppercase tracking-wider">{user.accountStatus || 'Pending'}</span>
-                        </div>
-                    </div>
-
-                    {/* Profile Picture Section */}
                     <div className="relative group/pic">
                         {user.profilePicture ? (
                             <div className="relative">
@@ -357,7 +344,7 @@ const StudentDashboard = () => {
                                 />
                                 <button
                                     onClick={handleProfilePicDelete}
-                                    className="absolute -top-2 -right-2 bg-rose-500 text-white p-2.5 rounded-2xl shadow-xl opacity-0 group-hover/pic:opacity-100 transition-all hover:scale-110 active:scale-95"
+                                    className="absolute -top-2 -right-2 bg-rose-500 text-white p-2.5 rounded-2xl shadow-xl opacity-0 group-hover/pic:opacity-100 transition-all hover:scale-110 active:scale-95 z-30"
                                     title="Delete Photo"
                                 >
                                     <HiOutlineTrash className="text-lg" />
@@ -424,7 +411,7 @@ const StudentDashboard = () => {
                                     </div>
                                     <div className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 transition-colors rounded-2xl border border-white/10 shadow-sm backdrop-blur-sm">
                                         <HiOutlineHome className="text-[#FAB95B]" />
-                                        <span className="text-sm font-bold tracking-tight">Room {fmtRoom(myAllocation.wing, myAllocation.roomnumber)}</span>
+                                        <span className="text-sm font-bold tracking-tight">Room {myAllocation.roomnumber}</span>
                                     </div>
                                     <div className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 transition-colors rounded-2xl border border-white/10 shadow-sm backdrop-blur-sm">
                                         <HiOutlineKey className="text-[#FAB95B]" />
@@ -467,379 +454,22 @@ const StudentDashboard = () => {
             )}
             {activeTab === 'in-out' && <InOutView status={myStatus} onRefresh={fetchMyStatus} isAllocated={!!myAllocation} />}
             {activeTab === 'payments' && <PaymentTab user={user} />}
-            {activeTab === 'chats' && (
-                <ComplaintsView
-                    complaints={complaints}
-                    selectedId={selectedId}
-                    setSelectedId={setSelectedId}
-                    activeComplaint={activeComplaint}
-                    user={user}
-                    setIsComplaintModalOpen={setIsComplaintModalOpen}
-                    fetchData={fetchData}
-                />
-            )}
-            {activeTab === 'settings' && <SettingsView user={user} onRefresh={fetchData} myClearance={myClearance} />}
+            {
+                activeTab === 'chats' && (
+                    <ComplaintsView
+                        complaints={complaints}
+                        selectedId={selectedId}
+                        setSelectedId={setSelectedId}
+                        activeComplaint={activeComplaint}
+                        user={user}
+                        setIsComplaintModalOpen={setIsComplaintModalOpen}
+                        fetchData={fetchData}
+                    />
+                )
+            }
 
             {isComplaintModalOpen && <NewComplaintModal onClose={() => setIsComplaintModalOpen(false)} onCreated={() => fetchData(false)} user={user} />}
-        </div>
-    );
-};
-
-// ─── Delete Profile Modal ──────────────────────────────────
-const DeleteProfileModal = ({ onClose, onConfirm, loading }) => {
-    const [password, setPassword] = useState('');
-    const [showPwd, setShowPwd] = useState(false);
-
-    return (
-        <div className="modal-overlay" onClick={onClose} style={{ zIndex: 9999 }}>
-            <div className="modal !max-w-md dark:bg-slate-900 border dark:border-slate-800" onClick={e => e.stopPropagation()}>
-                <div className="modal-header border-b dark:border-slate-800">
-                    <div>
-                        <h3 className="text-xl font-black text-rose-600 uppercase tracking-tighter">Delete Profile</h3>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">This action cannot be undone</p>
-                    </div>
-                </div>
-
-                <div className="modal-body py-8 px-6 space-y-6">
-                    <div className="p-4 bg-rose-50 dark:bg-rose-900/10 rounded-2xl border border-rose-100 dark:border-rose-800/50">
-                        <p className="text-xs font-bold text-rose-700 dark:text-rose-400 leading-relaxed">
-                            Deleting your profile will permanently remove your account document from the hostel database. 
-                            Internal hostel records (Allocations, Payments, etc.) will be purged separately by the Warden.
-                        </p>
-                    </div>
-
-                    <div className="space-y-4">
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Enter Password to Confirm</label>
-                            <div className="relative">
-                                <input
-                                    type={showPwd ? 'text' : 'password'}
-                                    className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700 rounded-2xl focus:ring-4 focus:ring-rose-50/50 outline-none transition-all font-bold"
-                                    placeholder="Verify Password"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                />
-                                <button type="button" onClick={() => setShowPwd(!showPwd)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">
-                                    {showPwd ? <HiOutlineEyeSlash size={18} /> : <HiOutlineEye size={18} />}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="modal-footer bg-slate-50 dark:bg-slate-900/50 flex gap-3 border-t dark:border-slate-800">
-                    <button 
-                        className="flex-1 h-12 bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-xl font-bold text-xs hover:bg-slate-300 transition-all cursor-pointer"
-                        onClick={onClose}
-                    >
-                        Keep My Profile
-                    </button>
-                    <button 
-                        className="flex-1 h-12 bg-rose-600 text-white rounded-xl font-black text-xs hover:bg-rose-700 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-                        disabled={!password || loading}
-                        onClick={() => onConfirm(password)}
-                    >
-                        {loading ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <HiOutlineTrash />}
-                        Delete Permanently
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-// ─── Settings View (Phone & Password OTP) ──────────────────────────────────
-const SettingsView = ({ user, onRefresh, myClearance }) => {
-    const [phoneState, setPhoneState] = useState({ step: 'form', newPhone: '', otp: '', loading: false });
-    const [pwdState, setPwdState] = useState({ step: 'form', newPwd: '', confirmPwd: '', otp: '', loading: false });
-    const [showPwd, setShowPwd] = useState(false);
-    const [showConfirm, setShowConfirm] = useState(false);
-    const [showDeleteModal, setShowDeleteModal] = useState(false);
-    const [isDeleting, setIsDeleting] = useState(false);
-    const navigate = useNavigate();
-
-    const isClearanceApproved = myClearance?.status === 'Approved';
-
-    const handleDeleteAccount = async (password) => {
-        setIsDeleting(true);
-        try {
-            const data = await api.deleteMyProfile(password);
-            if (data.success) {
-                toast.success('Your profile has been deleted. Logging you out...');
-                setTimeout(() => {
-                    sessionStorage.clear();
-                    localStorage.clear();
-                    navigate('/login');
-                }, 1500);
-            } else {
-                toast.error(data.message || 'Deletion failed');
-            }
-        } catch (err) {
-            toast.error(err.message || 'An error occurred during deletion');
-        } finally {
-            setIsDeleting(false);
-            setShowDeleteModal(false);
-        }
-    };
-
-    // ── Phone Update Logic ──
-    const requestPhoneOTP = async (e) => {
-        e.preventDefault();
-        if (!/^\d{10}$/.test(phoneState.newPhone)) return toast.error('Enter a valid 10-digit number');
-        setPhoneState(prev => ({ ...prev, loading: true }));
-        try {
-            const res = await fetch(`${API}/auth/request-phone-update`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${user.token}` },
-                body: JSON.stringify({ newPhone: phoneState.newPhone })
-            });
-            const data = await res.json();
-            if (data.success) {
-                toast.success('OTP sent to new number!');
-                setPhoneState(prev => ({ ...prev, step: 'otp' }));
-            } else toast.error(data.message);
-        } catch { toast.error('Connection error'); }
-        finally { setPhoneState(prev => ({ ...prev, loading: false })); }
-    };
-
-    const verifyPhoneOTP = async (e) => {
-        e.preventDefault();
-        setPhoneState(prev => ({ ...prev, loading: true }));
-        try {
-            const res = await fetch(`${API}/auth/verify-phone-update`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${user.token}` },
-                body: JSON.stringify({ otp: phoneState.otp })
-            });
-            const data = await res.json();
-            if (data.success) {
-                toast.success('Phone number updated!');
-                setPhoneState({ step: 'success', newPhone: '', otp: '', loading: false });
-                onRefresh();
-            } else toast.error(data.message);
-        } catch { toast.error('Connection error'); }
-        finally { setPhoneState(prev => ({ ...prev, loading: false })); }
-    };
-
-    // ── Password Update Logic (Reusing forgot-password logic) ──
-    const requestPwdOTP = async (e) => {
-        e.preventDefault();
-        if (pwdState.newPwd !== pwdState.confirmPwd) return toast.error('Passwords do not match');
-        if (pwdState.newPwd.length < 6) return toast.error('Min. 6 characters required');
-        setPwdState(prev => ({ ...prev, loading: true }));
-        try {
-            const res = await fetch(`${API}/auth/forgot-password`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: user.email, newPassword: pwdState.newPwd, confirmPassword: pwdState.confirmPwd })
-            });
-            const data = await res.json();
-            if (data.success) {
-                toast.success(data.message);
-                setPwdState(prev => ({ ...prev, step: 'otp' }));
-            } else toast.error(data.message);
-        } catch { toast.error('Connection error'); }
-        finally { setPwdState(prev => ({ ...prev, loading: false })); }
-    };
-
-    const verifyPwdOTP = async (e) => {
-        e.preventDefault();
-        setPwdState(prev => ({ ...prev, loading: true }));
-        try {
-            const res = await fetch(`${API}/auth/reset-password`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: user.email, otp: pwdState.otp })
-            });
-            const data = await res.json();
-            if (data.success) {
-                toast.success('Password updated successfully!');
-                setPwdState({ step: 'success', newPwd: '', confirmPwd: '', otp: '', loading: false });
-            } else toast.error(data.message);
-        } catch { toast.error('Connection error'); }
-        finally { setPwdState(prev => ({ ...prev, loading: false })); }
-    };
-
-    return (
-        <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 shadow-sm border border-slate-50 dark:border-slate-800">
-                <div className="flex items-center gap-4 mb-8">
-                    <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-900/30 rounded-2xl flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-                        <HiOutlineCog6Tooth size={24} />
-                    </div>
-                    <div>
-                        <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100">Account Settings</h2>
-                        <p className="text-sm text-slate-400 font-medium">Manage your contact info and account security</p>
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    {/* ── Section: Phone Change ── */}
-                    <div className="space-y-6 p-6 bg-slate-50/50 dark:bg-slate-800/30 rounded-3xl border border-slate-100 dark:border-slate-800">
-                        <div className="flex items-center gap-3">
-                            <HiOutlineDevicePhoneMobile className="text-indigo-500 text-lg" />
-                            <h3 className="text-sm font-black text-slate-700 dark:text-slate-200 uppercase tracking-widest">Phone Number</h3>
-                        </div>
-
-                        {phoneState.step === 'form' && (
-                            <form onSubmit={requestPhoneOTP} className="space-y-4">
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">New Phone Number</label>
-                                    <input
-                                        type="text" placeholder="e.g. 07XXXXXXXX"
-                                        className="w-full px-5 py-4 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-4 focus:ring-indigo-50/50 outline-none transition-all font-bold"
-                                        value={phoneState.newPhone} onChange={e => setPhoneState({ ...phoneState, newPhone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
-                                    />
-                                </div>
-                                <button type="submit" disabled={phoneState.loading} className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black text-sm hover:bg-indigo-700 transition-all disabled:opacity-50">
-                                    {phoneState.loading ? 'Sending OTP...' : 'Send OTP to New Phone'}
-                                </button>
-                            </form>
-                        )}
-
-                        {phoneState.step === 'otp' && (
-                            <form onSubmit={verifyPhoneOTP} className="space-y-4">
-                                <div className="p-4 bg-indigo-50/50 dark:bg-indigo-900/10 rounded-2xl border border-indigo-100/50">
-                                    <p className="text-xs font-bold text-indigo-600">OTP sent to {phoneState.newPhone}</p>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Enter 6-Digit OTP</label>
-                                    <input
-                                        type="text" maxLength={6} placeholder="• • • • • •"
-                                        className="w-full px-5 py-4 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl text-center text-xl font-black tracking-widest focus:ring-4 focus:ring-indigo-50/50 outline-none transition-all"
-                                        value={phoneState.otp} onChange={e => setPhoneState({ ...phoneState, otp: e.target.value.replace(/\D/g, '') })}
-                                    />
-                                </div>
-                                <div className="flex gap-2">
-                                    <button type="button" onClick={() => setPhoneState({ ...phoneState, step: 'form' })} className="px-6 py-4 bg-slate-100 dark:bg-slate-800 rounded-2xl font-bold text-sm">Back</button>
-                                    <button type="submit" disabled={phoneState.loading} className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-black text-sm hover:bg-indigo-700 transition-all disabled:opacity-50">
-                                        Verify & Update
-                                    </button>
-                                </div>
-                            </form>
-                        )}
-
-                        {phoneState.step === 'success' && (
-                            <div className="text-center py-4 space-y-3">
-                                <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-xl">✓</div>
-                                <p className="text-sm font-bold text-slate-600 dark:text-slate-400">Phone number updated!</p>
-                                <button onClick={() => setPhoneState({ ...phoneState, step: 'form' })} className="text-xs font-black text-indigo-600 uppercase">Change again</button>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* ── Section: Password Change ── */}
-                    <div className="space-y-6 p-6 bg-slate-50/50 dark:bg-slate-800/30 rounded-3xl border border-slate-100 dark:border-slate-800">
-                        <div className="flex items-center gap-3">
-                            <HiOutlineLockClosed className="text-rose-500 text-lg" />
-                            <h3 className="text-sm font-black text-slate-700 dark:text-slate-200 uppercase tracking-widest">Security</h3>
-                        </div>
-
-                        {pwdState.step === 'form' && (
-                            <form onSubmit={requestPwdOTP} className="space-y-4">
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">New Password</label>
-                                    <div className="relative">
-                                        <input
-                                            type={showPwd ? 'text' : 'password'}
-                                            className="w-full px-5 py-4 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-4 focus:ring-indigo-50/50 outline-none transition-all font-bold"
-                                            value={pwdState.newPwd} onChange={e => setPwdState({ ...pwdState, newPwd: e.target.value })}
-                                        />
-                                        <button type="button" onClick={() => setShowPwd(!showPwd)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">
-                                            {showPwd ? <HiOutlineEyeSlash size={18} /> : <HiOutlineEye size={18} />}
-                                        </button>
-                                    </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Confirm Password</label>
-                                    <div className="relative">
-                                        <input
-                                            type={showConfirm ? 'text' : 'password'}
-                                            className="w-full px-5 py-4 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-4 focus:ring-indigo-50/50 outline-none transition-all font-bold"
-                                            value={pwdState.confirmPwd} onChange={e => setPwdState({ ...pwdState, confirmPwd: e.target.value })}
-                                        />
-                                        <button type="button" onClick={() => setShowConfirm(!showConfirm)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">
-                                            {showConfirm ? <HiOutlineEyeSlash size={18} /> : <HiOutlineEye size={18} />}
-                                        </button>
-                                    </div>
-                                </div>
-                                <button type="submit" disabled={pwdState.loading} className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black text-sm hover:bg-indigo-700 transition-all disabled:opacity-50">
-                                    {pwdState.loading ? 'Processing...' : 'Request Password Change'}
-                                </button>
-                            </form>
-                        )}
-
-                        {pwdState.step === 'otp' && (
-                            <form onSubmit={verifyPwdOTP} className="space-y-4">
-                                <div className="p-4 bg-rose-50/50 dark:bg-rose-900/10 rounded-2xl border border-rose-100/50">
-                                    <p className="text-xs font-bold text-rose-600">OTP sent to your registered phone</p>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Enter Security Code</label>
-                                    <input
-                                        type="text" maxLength={6} placeholder="• • • • • •"
-                                        className="w-full px-5 py-4 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl text-center text-xl font-black tracking-widest focus:ring-4 focus:ring-indigo-50/50 outline-none transition-all"
-                                        value={pwdState.otp} onChange={e => setPwdState({ ...pwdState, otp: e.target.value.replace(/\D/g, '') })}
-                                    />
-                                </div>
-                                <div className="flex gap-2">
-                                    <button type="button" onClick={() => setPwdState({ ...pwdState, step: 'form' })} className="px-6 py-4 bg-slate-100 dark:bg-slate-800 rounded-2xl font-bold text-sm">Back</button>
-                                    <button type="submit" disabled={pwdState.loading} className="flex-1 py-4 bg-rose-600 text-white rounded-2xl font-black text-sm hover:bg-rose-700 transition-all disabled:opacity-50">
-                                        Reset Password
-                                    </button>
-                                </div>
-                            </form>
-                        )}
-
-                        {pwdState.step === 'success' && (
-                            <div className="text-center py-4 space-y-3">
-                                <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-xl">✓</div>
-                                <p className="text-sm font-bold text-slate-600 dark:text-slate-400">Password reset successful!</p>
-                                <button onClick={() => setPwdState({ ...pwdState, step: 'form' })} className="text-xs font-black text-indigo-600 uppercase">Change again</button>
-                            </div>
-                        )}
-                    </div>
-                </div>
-                
-                <div className="mt-12 pt-8 border-t border-slate-50 dark:border-slate-800">
-                    <div className="bg-indigo-600 rounded-3xl p-6 text-white flex items-center justify-between">
-                        <div>
-                            <h4 className="text-lg font-black">Need more help?</h4>
-                            <p className="text-xs text-white/50 font-medium">Contact the warden for major account changes.</p>
-                        </div>
-                        <button onClick={() => onRefresh()} className="px-6 py-3 bg-white/10 hover:bg-white/20 rounded-xl text-xs font-black transition-all">Refresh Session</button>
-                    </div>
-                </div>
-
-                {isClearanceApproved && (
-                    <div className="mt-8 p-8 bg-rose-50/30 dark:bg-rose-900/10 rounded-3xl border border-rose-100 dark:border-rose-900/30 space-y-4">
-                        <div className="flex items-center gap-3">
-                            <HiOutlineTrash className="text-rose-500 text-xl" />
-                            <h3 className="text-sm font-black text-rose-600 uppercase tracking-widest">Danger Zone</h3>
-                        </div>
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                            <div>
-                                <p className="text-sm font-bold text-slate-700 dark:text-slate-300">Delete Your Profile</p>
-                                <p className="text-xs text-slate-500 font-medium">Permanently remove your account and logout from the system.</p>
-                            </div>
-                            <button 
-                                onClick={() => setShowDeleteModal(true)}
-                                className="px-8 py-3 bg-rose-600 text-white rounded-2xl font-black text-xs hover:bg-rose-700 transition-all shadow-lg shadow-rose-500/20"
-                            >
-                                Delete Deactivation Requested Account
-                            </button>
-                        </div>
-                    </div>
-                )}
-            </div>
-            {showDeleteModal && (
-                <DeleteProfileModal 
-                    onClose={() => setShowDeleteModal(false)}
-                    onConfirm={handleDeleteAccount}
-                    loading={isDeleting}
-                />
-            )}
-        </div>
+        </div >
     );
 };
 
@@ -859,13 +489,6 @@ const DashboardView = ({ user, student, application, complaints, notices, naviga
                             color={student?.refundPayment?.paymentStatus === 'Approved' ? 'emerald' : 'amber'} 
                         />
                     </div>
-
-                    {student?.refundPayment?.paymentStatus === 'Approved' && (
-                        <div className="mt-4 p-5 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-[2rem] text-emerald-700 dark:text-emerald-400 font-bold text-sm flex items-center gap-3 animate-in fade-in slide-in-from-top-2 duration-700">
-                            <span className="text-2xl"></span>
-                            <span>Refundable is successful. Check your bank account!</span>
-                        </div>
-                    )}
 
                     {/* Payment Summary Card */}
                     <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 shadow-sm border border-slate-50 dark:border-slate-800">
@@ -1597,8 +1220,8 @@ const ComplaintsView = ({ complaints, selectedId, setSelectedId, activeComplaint
         setSendingFeedback(true);
         try {
             const feedbackText = type === 'great'
-                ? 'Student feedback: Issue resolved successfully. Thank you for your help!'
-                : 'Student feedback: Issue is NOT resolved yet. Please reopen and assist further.';
+                ? '✅ Student feedback: Issue resolved successfully. Thank you for your help!'
+                : '⚠️ Student feedback: Issue is NOT resolved yet. Please reopen and assist further.';
 
             const formData = new FormData();
             formData.append('content', feedbackText);
@@ -1619,7 +1242,7 @@ const ComplaintsView = ({ complaints, selectedId, setSelectedId, activeComplaint
                 fetchData(false);
                 toast('Complaint reopened — warden has been notified.', { icon: '🔄' });
             } else {
-                toast.success('Feedback sent! Glad the issue was resolved. ');
+                toast.success('Feedback sent! Glad the issue was resolved. 🎉');
             }
             setFeedbackGiven(type);
         } catch {
@@ -1981,7 +1604,7 @@ const ComplaintsView = ({ complaints, selectedId, setSelectedId, activeComplaint
                                     <div className="py-5 text-center">
                                         {feedbackGiven === 'great' ? (
                                             <div className="flex flex-col items-center gap-1.5">
-                                                <span className="text-2xl"></span>
+                                                <span className="text-2xl">🎉</span>
                                                 <p className="text-emerald-700 dark:text-emerald-400 text-xs font-black">Thank you for your feedback!</p>
                                                 <p className="text-slate-400 dark:text-slate-500 text-[10px] font-bold">We're glad the issue was resolved.</p>
                                             </div>
@@ -2133,7 +1756,7 @@ const NewComplaintModal = ({ onClose, onCreated, user }) => {
                         <button
                             type="submit"
                             disabled={isSubmitting}
-                            className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black hover:bg-indigo-700 active:scale-95 transition-all shadow-xl shadow-indigo-100 dark:shadow-indigo-900/20 disabled:opacity-50 flex items-center justify-center gap-3"
+                            className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black hover:bg-slate-800 active:scale-95 transition-all shadow-xl shadow-slate-200 disabled:opacity-50 flex items-center justify-center gap-3"
                         >
                             {isSubmitting ? (
                                 <>
@@ -2157,7 +1780,6 @@ const NewComplaintModal = ({ onClose, onCreated, user }) => {
 const ClearanceView = ({ user, allocation, application, clearance, onRefresh }) => {
     const [submitting, setSubmitting] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-    const [editingBank, setEditingBank] = useState(false);
     const [bankDetails, setBankDetails] = useState({
         accountHolderName: '',
         bankName: '',
@@ -2165,23 +1787,11 @@ const ClearanceView = ({ user, allocation, application, clearance, onRefresh }) 
         accountNumber: ''
     });
 
-    // Pre-fill bank edit form from existing clearance when entering edit mode
-    const handleStartEditBank = () => {
-        setBankDetails({
-            accountHolderName: clearance?.bankDetails?.accountHolderName || '',
-            bankName: clearance?.bankDetails?.bankName || '',
-            branchName: clearance?.bankDetails?.branchName || '',
-            accountNumber: clearance?.bankDetails?.accountNumber || '',
-        });
-        setEditingBank(true);
-    };
-
     const handleBankChange = (e) => {
         const { name, value } = e.target;
         setBankDetails(prev => ({ ...prev, [name]: value }));
     };
 
-    // Submit NEW clearance form
     const handleSubmit = async () => {
         if (!allocation) return;
         setSubmitting(true);
@@ -2219,33 +1829,6 @@ const ClearanceView = ({ user, allocation, application, clearance, onRefresh }) 
         }
     };
 
-    // Update bank details only (for In Progress stage)
-    const handleSaveBank = async () => {
-        setSubmitting(true);
-        try {
-            const res = await fetch(`${API}/clearance/me/bank`, {
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${user.token}`
-                },
-                body: JSON.stringify(bankDetails)
-            });
-            const data = await res.json();
-            if (data.success) {
-                toast.success('Bank details updated successfully!');
-                setEditingBank(false);
-                onRefresh();
-            } else {
-                toast.error(data.message || 'Update failed');
-            }
-        } catch (err) {
-            toast.error('Something went wrong');
-        } finally {
-            setSubmitting(false);
-        }
-    };
-
     const handleDelete = async () => {
         setSubmitting(true);
         try {
@@ -2257,7 +1840,7 @@ const ClearanceView = ({ user, allocation, application, clearance, onRefresh }) 
             if (data.success) {
                 toast.success('Clearance form deleted successfully.');
                 setShowDeleteConfirm(false);
-                onRefresh();
+                onRefresh(); // Refresh and clear state
             } else {
                 toast.error(data.message || 'Delete failed');
             }
@@ -2281,41 +1864,19 @@ const ClearanceView = ({ user, allocation, application, clearance, onRefresh }) 
     }
 
     if (clearance) {
-        // Determine current stage
-        const isWardenReviewed = clearance.isWardenSubmitted; // warden submitted → In Progress
-        const isFinal = clearance.status === 'Approved' || clearance.status === 'Rejected';
-
         return (
             <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] overflow-hidden shadow-lg shadow-slate-100/60 dark:shadow-none transition-all border border-slate-100 dark:border-slate-800">
                 {/* Status Bar */}
-                <div className={`px-8 py-5 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 ${
-                    isFinal ? 'bg-gradient-to-r from-emerald-50 to-slate-50 dark:from-emerald-900/20 dark:to-slate-900/50'
-                    : isWardenReviewed ? 'bg-gradient-to-r from-amber-50 to-slate-50 dark:from-amber-900/20 dark:to-slate-900/50'
-                    : 'bg-gradient-to-r from-indigo-50 to-slate-50 dark:from-indigo-900/20 dark:to-slate-900/50'
-                }`}>
+                <div className="px-8 py-5 bg-gradient-to-r from-emerald-50 to-slate-50 dark:from-emerald-900/20 dark:to-slate-900/50 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
-                        <div className={`w-2.5 h-2.5 rounded-full animate-pulse ${
-                            clearance.status === 'Rejected' ? 'bg-rose-500'
-                            : clearance.status === 'Approved' ? 'bg-emerald-500'
-                            : clearance.status === 'In Progress' ? 'bg-amber-400'
-                            : 'bg-indigo-400'
-                        }`} />
+                        <div className={`w-2.5 h-2.5 rounded-full ${clearance.status === 'Rejected' ? 'bg-rose-500' : clearance.status === 'Approved' ? 'bg-emerald-500' : 'bg-amber-400'} animate-pulse`} />
                         <span className="text-sm font-black text-slate-700 dark:text-slate-200 uppercase tracking-wider">CLEARANCE {clearance.status}</span>
-                        {isWardenReviewed && !isFinal && (
-                            <span className="px-2.5 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-[10px] font-black rounded-full uppercase tracking-widest">Warden Reviewed</span>
-                        )}
                     </div>
                     <span className="text-xs text-slate-400 dark:text-slate-500 font-semibold">Submitted {new Date(clearance.submittedAt).toLocaleDateString()}</span>
                 </div>
 
                 {/* Info Display */}
                 <div className="p-8 space-y-8">
-                    {clearance.status === 'Approved' && (
-                        <div className="p-5 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-[2rem] text-emerald-700 dark:text-emerald-400 font-bold text-sm flex items-center gap-3 animate-in fade-in slide-in-from-top-2 duration-700">
-                            <span className="text-2xl"></span>
-                            <span>Refundable is successful. Check your bank account!</span>
-                        </div>
-                    )}
                     <section>
                         <div className="flex items-center gap-2 mb-4">
                             <HiOutlineUser className="text-indigo-400 dark:text-indigo-500 text-base" />
@@ -2339,98 +1900,51 @@ const ClearanceView = ({ user, allocation, application, clearance, onRefresh }) 
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             <ReadField label="Wing" value={clearance.wing} />
                             <ReadField label="Floor" value={clearance.floorNumber} />
-                            <ReadField label="Room" value={fmtRoom(clearance.wing, clearance.roomNumber)} />
+                            <ReadField label="Room" value={clearance.roomNumber} />
                             <ReadField label="Bed ID" value={clearance.bedId} />
                         </div>
                     </section>
 
                     <div className="border-t border-slate-100" />
 
-                    {/* Bank Details — editable when In Progress */}
                     <section>
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-2">
-                                <HiOutlineWallet className="text-indigo-400 dark:text-indigo-500 text-base" />
-                                <h4 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Bank Details for Refund</h4>
-                            </div>
-                            {isWardenReviewed && !isFinal && !editingBank && (
-                                <button
-                                    onClick={handleStartEditBank}
-                                    className="flex items-center gap-1.5 px-4 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl text-xs font-bold hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all"
-                                >
-                                    <HiOutlinePencilSquare className="text-sm" /> Edit Bank Details
-                                </button>
-                            )}
+                        <div className="flex items-center gap-2 mb-4">
+                            <HiOutlineWallet className="text-indigo-400 dark:text-indigo-500 text-base" />
+                            <h4 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Bank Details for Refund</h4>
                         </div>
-
-                        {isWardenReviewed && !isFinal && editingBank ? (
-                            <div className="space-y-4 p-5 bg-amber-50/50 dark:bg-amber-900/10 rounded-2xl border border-amber-100 dark:border-amber-900/30">
-                                <p className="text-xs text-amber-700 dark:text-amber-400 font-bold">✏️ Update your bank details below and save.</p>
-                                <div className="grid md:grid-cols-2 gap-4">
-                                    <Input label="Account Holder Name" name="accountHolderName" value={bankDetails.accountHolderName} onChange={handleBankChange} />
-                                    <Input label="Bank Name" name="bankName" value={bankDetails.bankName} onChange={handleBankChange} />
-                                    <Input label="Branch Name" name="branchName" value={bankDetails.branchName} onChange={handleBankChange} />
-                                    <Input label="Account Number" name="accountNumber" value={bankDetails.accountNumber} onChange={handleBankChange} />
-                                </div>
-                                <div className="flex gap-3 pt-1">
-                                    <button onClick={() => setEditingBank(false)} className="px-5 py-2.5 border-2 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 rounded-xl font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">Cancel</button>
-                                    <button onClick={handleSaveBank} disabled={submitting} className="px-7 py-2.5 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 hover:shadow-lg transition-all disabled:opacity-60">
-                                        {submitting ? 'Saving...' : '💾 Save Bank Details'}
-                                    </button>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                <ReadField label="Account Holder" value={clearance.bankDetails?.accountHolderName} />
-                                <ReadField label="Bank Name" value={clearance.bankDetails?.bankName} />
-                                <ReadField label="Branch" value={clearance.bankDetails?.branchName} />
-                                <ReadField label="Account Number" value={clearance.bankDetails?.accountNumber} />
-                            </div>
-                        )}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <ReadField label="Account Holder" value={clearance.bankDetails?.accountHolderName} />
+                            <ReadField label="Bank Name" value={clearance.bankDetails?.bankName} />
+                            <ReadField label="Branch" value={clearance.bankDetails?.branchName} />
+                            <ReadField label="Account Number" value={clearance.bankDetails?.accountNumber} />
+                        </div>
                     </section>
-
-                    {/* In Progress info notice */}
-                    {isWardenReviewed && !isFinal && (
-                        <div className="flex items-start gap-3 p-4 bg-amber-50 dark:bg-amber-900/20 rounded-2xl border border-amber-100 dark:border-amber-900/30">
-                            <HiOutlineExclamationCircle className="text-amber-500 dark:text-amber-400 text-xl flex-shrink-0 mt-0.5" />
-                            <div>
-                                <p className="text-sm font-bold text-amber-700 dark:text-amber-400">Warden has reviewed your clearance</p>
-                                <p className="text-xs text-amber-600/80 dark:text-amber-500 mt-0.5">Your form is now being processed. You can update your bank details if needed, but the form cannot be deleted at this stage.</p>
-                            </div>
-                        </div>
-                    )}
                 </div>
 
                 {/* Footer Actions */}
                 <div className="px-8 py-6 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                    <p className="text-xs text-slate-400 dark:text-slate-500 font-medium">
-                        {isFinal ? 'Clearance process is complete.' : isWardenReviewed ? 'Under review — deletion is disabled.' : 'You may delete this request before warden review.'}
-                    </p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 font-medium">Clearance process is handled by administration.</p>
                     <div className="flex gap-3">
-                        {/* Only show Delete when status is Pending (warden hasn't reviewed yet) */}
-                        {!isWardenReviewed && !isFinal && (
-                            showDeleteConfirm ? (
-                                <div className="flex items-center gap-3 bg-rose-50 dark:bg-rose-900/30 border border-rose-200 dark:border-rose-900/30 rounded-2xl px-4 py-2">
-                                    <span className="text-rose-700 dark:text-rose-400 font-bold text-xs">Delete clearance?</span>
-                                    <button onClick={handleDelete} disabled={submitting} className="px-4 py-1.5 bg-rose-600 text-white rounded-xl text-[10px] font-black hover:bg-rose-700 transition-all disabled:opacity-60">{submitting ? '...' : 'Delete'}</button>
-                                    <button onClick={() => setShowDeleteConfirm(false)} className="px-4 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-[10px] font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all">Cancel</button>
-                                </div>
-                            ) : (
-                                <button
-                                    onClick={() => setShowDeleteConfirm(true)}
-                                    className="px-5 py-2.5 border-2 border-rose-100 dark:border-rose-900/30 text-rose-500 dark:text-rose-400 rounded-2xl font-bold text-sm flex items-center gap-2 hover:bg-rose-50 dark:hover:bg-rose-900/40 hover:border-rose-200 dark:hover:border-rose-900/60 transition-all active:scale-95"
-                                >
-                                    <HiOutlineTrash className="text-base" />
-                                    Delete Request
-                                </button>
-                            )
+                        {showDeleteConfirm ? (
+                            <div className="flex items-center gap-3 bg-rose-50 dark:bg-rose-900/30 border border-rose-200 dark:border-rose-900/30 rounded-2xl px-4 py-2">
+                                <span className="text-rose-700 dark:text-rose-400 font-bold text-xs">Delete clearance?</span>
+                                <button onClick={handleDelete} disabled={submitting} className="px-4 py-1.5 bg-rose-600 text-white rounded-xl text-[10px] font-black hover:bg-rose-700 transition-all disabled:opacity-60">{submitting ? '...' : 'Delete'}</button>
+                                <button onClick={() => setShowDeleteConfirm(false)} className="px-4 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-[10px] font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all">Cancel</button>
+                            </div>
+                        ) : (
+                            <button
+                                onClick={() => setShowDeleteConfirm(true)}
+                                className="px-5 py-2.5 border-2 border-rose-100 dark:border-rose-900/30 text-rose-500 dark:text-rose-400 rounded-2xl font-bold text-sm flex items-center gap-2 hover:bg-rose-50 dark:hover:bg-rose-900/40 hover:border-rose-200 dark:hover:border-rose-900/60 transition-all active:scale-95"
+                            >
+                                <HiOutlineTrash className="text-base" />
+                                Delete Request
+                            </button>
                         )}
                     </div>
                 </div>
             </div>
         );
     }
-
 
     return (
         <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 overflow-hidden shadow-lg shadow-slate-100/60 dark:shadow-none transition-all duration-500 animate-in fade-in slide-in-from-bottom-4">
@@ -2463,7 +1977,7 @@ const ClearanceView = ({ user, allocation, application, clearance, onRefresh }) 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <ReadField label="Wing" value={allocation.wing} />
                         <ReadField label="Floor" value={allocation.floorNumber} />
-                        <ReadField label="Room Number" value={fmtRoom(allocation.wing, allocation.roomnumber)} />
+                        <ReadField label="Room Number" value={allocation.roomnumber} />
                         <ReadField label="Room Type" value={allocation.roomType} />
                         <ReadField label="Bed ID" value={allocation.bedId} />
                     </div>

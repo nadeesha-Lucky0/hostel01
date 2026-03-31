@@ -11,16 +11,14 @@ const authRoutes = require("./routes/authRoutes.js");
 const complaintRoutes = require("./routes/complaints.js");
 const noticeRoutes = require("./routes/notice.js");
 const applicationRoutes = require("./routes/applicationRoutes.js");
+const notificationRoutes = require("./routes/notificationRoutes.js");
+const studentRoutes = require("./routes/studentRoutes.js");
 const studentPaymentRoutes = require("./routes/studentPaymentRoutes.js");
 const financialRoutes = require('./routes/financialRoutes');
 const userRoutes = require("./routes/userRoutes.js");
 const clearanceRoutes = require("./routes/clearanceRoutes.js");
 const qrRoutes = require("./routes/qrRoutes.js");
-const adminRoutes = require("./routes/adminRoutes.js");
-const leaveRoutes = require("./routes/leaveRoutes.js");
-const resourceRoutes = require("./routes/resourceRoutes.js");
 const { getStats } = require("./controllers/allocationController.js");
-const { ensureDefaultAdmin } = require("./utils/ensureDefaultAdmin.js");
 
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
@@ -41,22 +39,35 @@ app.use("/api/auth", authRoutes);
 app.use("/api/complaints", complaintRoutes);
 app.use("/api/notices", noticeRoutes);
 app.use("/api/applications", applicationRoutes);
+app.use("/api/notifications", notificationRoutes);
+app.use("/api/students", studentRoutes);
 app.use("/api/student-payments", studentPaymentRoutes);
 app.use('/api/financial', financialRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/clearance", clearanceRoutes);
 app.use("/api/qr", qrRoutes);
-app.use("/api/admin", adminRoutes);
-app.use("/api/leave", leaveRoutes);
-app.use("/api/resources", resourceRoutes);
 app.get("/api/stats", getStats);
 
-// Serve static assets (Frontend)
+
+
+// Serve static assets
 const frontendPath = path.join(__dirname, '../../frontend/dist');
 app.use(express.static(frontendPath));
 
-// Catch-all for React Router - MUST be after all other routes
-app.get('/*', (req, res) => {
+// API Routes (already defined above)
+// ... but we need a catch-all for SPA AFTER routes
+
+// 404 Handler - MUST be after all routes
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api')) {
+    console.log(`404 - Not Found: ${req.method} ${req.originalUrl}`);
+    return res.status(404).json({ success: false, msg: `Route ${req.originalUrl} not found` });
+  }
+  next();
+});
+
+// Catch-all for React Router
+app.get('*', (req, res) => {
   res.sendFile(path.resolve(frontendPath, 'index.html'));
 });
 
@@ -65,6 +76,7 @@ const multer = require('multer');
 app.use((err, req, res, next) => {
   console.error("Global Error Handler:", err);
   if (err instanceof multer.MulterError) {
+    // Multer-specific errors (file too large, too many files, etc.)
     return res.status(400).json({ success: false, msg: `Upload Error: ${err.message}` });
   }
   if (err && err.message && err.message.includes('File type')) {
@@ -79,7 +91,6 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 5000;
 
-connectDB().then(async () => {
-  await ensureDefaultAdmin();
+connectDB().then(() => {
   app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 });
